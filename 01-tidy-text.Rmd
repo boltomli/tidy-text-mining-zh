@@ -39,7 +39,6 @@ text <- c("床前明月光，",
           "疑是地上霜。",
           "举头望明月，",
           "低头思故乡。")
-
 text
 ```
 
@@ -50,47 +49,44 @@ library(jiebaR)
 cutter <- worker(bylines = TRUE, symbol = TRUE)
 text_wb <- sapply(segment(text, cutter), function(x){
   paste(x, collapse = " ")})
-
 text_wb
 ```
 
-This is a typical character vector that we might want to analyze. In order to turn it into a tidy text dataset, we first need to put it into a data frame.
+我们想要分析的是个典型的字符向量。要把它变成 tidy 文本数据集，我们先要把它放进数据框。
 
 ```{r text_df, dependson = "text_wb"}
 library(dplyr)
 text_df <- data_frame(line = 1:4, text = text_wb)
-
 text_df
 ```
 
-What does it mean that this data frame has printed out as a "tibble"? A tibble is a modern class of data frame within R, available in the dplyr and tibble packages, that has a convenient print method, will not convert strings to factors, and does not use row names. Tibbles are great for use with tidy tools.
+这个数据框显示为”tibble“是什么意思？一个 tibble 是 R 里一个现代的数据框类，在 dplyr 和 tibble 包中可用，它有个方便的打印方法，不把字符串转换为因子，也不为行命名。Tibble 特别适用于 tidy 工具。
 
-Notice that this data frame containing text isn't yet compatible with tidy text analysis, though. We can't filter out words or count which occur most frequently, since each row is made up of multiple combined words. We need to convert this so that it has **one-token-per-document-per-row**. 
+注意，这个包含文本的数据框尚未兼容 tidy 文本分析。我们不能过滤出词，也不能计数哪些出现更频繁，因为每行都由多个词合并组成。我们需要把它转换成 **每行每文档一个符号**。 
 
 ```{block, type = "rmdnote"}
 A token is a meaningful unit of text, most often a word, that we are interested in using for further analysis, and tokenization is the process of splitting text into tokens. 
 ```
 
-In this first example, we only have one document (the poem), but we will explore examples with multiple documents soon.
+在第一个例子里，我们只有一个文档（一首诗），不过我们马上就会探索多个文档的例子。
 
-Within our tidy text framework, we need to both break the text into individual tokens (a process called *tokenization*) *and* transform it to a tidy data structure. To do this, we use tidytext's `unnest_tokens()` function. 特意为中文用户解释一下词源，un-nest即nest的反向操作，把东西从nest里取出来。
+在我们的 tidy 文本框架中，我们需要把文本拆分成独个的符号（这个过程叫做 *符号化*）*并且* 将之变形为 tidy 数据结构。要做到这些，可以使用 tidytext 的 `unnest_tokens()` 函数。特意为中文用户解释一下词源，un-nest 即 nest 的反向操作：把内容从 nest 里取出来。
 
 ```{r dependson = "text_df", R.options = list(dplyr.print_max = 10)}
 library(tidytext)
-
 text_df %>%
   unnest_tokens(word, text)
 ```
 
-The two basic arguments to `unnest_tokens` used here are column names. First we have the output column name that will be created as the text is unnested into it (`word`, in this case), and then the input column that the text comes from (`text`, in this case). Remember that `text_df` above has a column called `text` that contains the data of interest.
+这里用到 `unnest_tokens` 的两个基本参数是列名。首先是将要创建的输出的列名，文本将被拆分到这里面（在这个例子里是 `word`），然后是输入的列名，文本来自于此（在这个例子里是 `text`）。回忆一下，上面的 `text_df` 叫做 `text` 的列包含了所需的数据。
 
-After using `unnest_tokens`, we've split each row so that there is one token (word) in each row of the new data frame; the default tokenization in `unnest_tokens()` is for single words, as shown here. Also notice:
+用过 `unnest_tokens` 之后，我们把每行拆分了，于是现在新的数据框里每行有一个符号（词）；正如所见，`unnest_tokens()` 默认按单个词进行符号化。还需要注意：
 
-* Other columns, such as the line number each word came from, are retained.
-* Punctuation has been stripped.
-* By default, `unnest_tokens()` converts the tokens to lowercase, which makes them easier to compare or combine with other datasets. (Use the `to_lower = FALSE` argument to turn off this behavior).
+* 其它列原样保留，比如每个词来自的行的行号。
+* 标点会被去掉。
+* 默认情况下，`unnest_tokens()` 把符号转换为小写字符，这是为了更方便与其它数据集比较或合并（用 `to_lower = FALSE` 参数可关闭这个行为）。
 
-Having the text data in this format lets us manipulate, process, and visualize the text using the standard set of tidy tools, namely dplyr, tidyr, and ggplot2, as shown in Figure \@ref(fig:tidyflow-ch1).
+有了这种格式的数据，我们可以使用标准的 tidy 工具套装进行操作、处理和可视化，即 dplyr、tidyr 和 ggplot2。如图 \@ref(fig:tidyflow-ch1) 所示。
 
 ```{r tidyflow-ch1, echo = FALSE, out.width = '100%', fig.cap = "A flowchart of a typical text analysis using tidy data principles. This chapter shows how to summarize and visualize text using these tools."}
 knitr::include_graphics("images/tidyflow-ch-1.png")
