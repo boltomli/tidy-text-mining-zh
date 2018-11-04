@@ -203,10 +203,15 @@ tidy_works %>%
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-## The gutenbergr package
+## gutenbergr 包
 
-Now that we've used the janeaustenr package to explore tidying text, let's introduce the [gutenbergr](https://github.com/ropensci/gutenbergr) package [@R-gutenbergr]. The gutenbergr package provides access to the public domain works from the [Project Gutenberg](https://www.gutenberg.org/) collection. The package includes tools both for downloading books (stripping out the unhelpful header/footer information), and a complete dataset of Project Gutenberg metadata that can be used to find works of interest. In this book, we will mostly use the function `gutenberg_download()` that downloads one or more works from Project Gutenberg by ID, but you can also use other functions to explore metadata, pair Gutenberg ID with title, author, language, etc., or gather information about authors. 
+现在我们用过 janeaustenr 包探索如何 tidy 文本，下面介绍一下 [gutenbergr](https://github.com/ropensci/gutenbergr) 包 [@R-gutenbergr]。使用 gutenbergr 包可访问来自[古登堡计划](https://www.gutenberg.org/)的公共领域作品集。包中有下载书籍的工具（且去除了用不上的头部、尾部信息），还有一份完整的古登堡计划数据集元数据，可以用来寻找感兴趣的作品。在这本书中，我们主要使用 `gutenberg_download()` 函数通过ID从古登堡计划下载一部或多部作品，不过也可使用其它函数来探索元数据，将古登堡ID与作品名、作者、语言等匹配，或是收集有关作者的信息。我们要使用的中文作品就是在如下数据中选出的。
 
+```{r gutenberg-zh}
+library(gutenbergr)
+
+gutenberg_works(languages = "zh")
+```
 
 ```{block, type = "rmdtip"}
 To learn more about gutenbergr, check out the [package's tutorial at rOpenSci](https://ropensci.org/tutorials/gutenbergr_tutorial.html), where it is one of rOpenSci's packages for data access.
