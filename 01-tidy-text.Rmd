@@ -1,4 +1,4 @@
-# The tidy text format {#tidytext}
+# tidy 文本格式 {#tidytext}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -8,29 +8,29 @@ library(ggplot2)
 theme_set(theme_light())
 ```
 
-Using tidy data principles is a powerful way to make handling data easier and more effective, and this is no less true when it comes to dealing with text. As described by Hadley Wickham [@tidydata], tidy data has a specific structure:
+处理数据的 tidy 数据原则简单有效，用于文本也一样。按 Hadley Wickham [@tidydata] 的阐述，tidy 数据有如下特定的结构：
 
-* Each variable is a column
-* Each observation is a row
-* Each type of observational unit is a table
+* 每个 variable 一列
+* 每个 observation 一行
+* 每种 observational unit 一个表格
 
-We thus define the tidy text format as being **a table with one-token-per-row.** A token is a meaningful unit of text, such as a word, that we are interested in using for analysis, and tokenization is the process of splitting text into tokens. This one-token-per-row structure is in contrast to the ways text is often stored in current analyses, perhaps as strings or in a document-term matrix. For tidy text mining, the **token** that is stored in each row is most often a single word, but can also be an n-gram, sentence, or paragraph. In the tidytext package, we provide functionality to tokenize by commonly used units of text like these and convert to a one-term-per-row format.
+于是，我们不妨定义 tidy 文本格式为一个 **每行一个符号的表格**。一个符号（token）是文本的一个有意义的单元，比如我们在分析中经常使用的词，而符号化（tokenization）就是将文本切分为符号的过程。这种“每行一个符号”的结构与当下分析中常用的其它文本存储方式形成鲜明对比，如字符串或者文档-术语矩阵。用于 tidy 文本挖掘时，存储在每行的 **符号** 通常是单个词，但也可以是 n元语（n-gram）、句或段落。在 tidytext 包里提供了符号化（tokenize）这些常见单元的方法，将其转换至“每项一行”的格式。
 
-Tidy data sets allow manipulation with a standard set of "tidy" tools, including popular packages such as dplyr [@R-dplyr], tidyr [@R-tidyr], ggplot2 [@R-ggplot2], and broom [@R-broom]. By keeping the input and output in tidy tables, users can transition fluidly between these packages. We've found these tidy tools extend naturally to many text analyses and explorations. 
+Tidy 数据集可以使用一组标准的 “tidy” 工具进行操作，包括了流行的包如 dplyr [@R-dplyr]、tidyr [@R-tidyr]、ggplot2 [@R-ggplot2] 和 broom [@R-broom]。若能保持输入和输出均为 tidy 表格，用户可以在这些包之间自如转换。我们发现这些 tidy 工具可以自然地拓展到很多文本分析和探索活动中。
 
-At the same time, the tidytext package doesn't expect a user to keep text data in a tidy form at all times during an analysis. The package includes functions to `tidy()` objects (see the broom package [Robinson et al cited above]) from popular text mining R packages such as tm [@tm] and quanteda [@R-quanteda]. This allows, for example, a workflow where importing, filtering, and processing is done using dplyr and other tidy tools, after which the data is converted into a document-term matrix for machine learning applications. The models can then be re-converted into a tidy form for interpretation and visualization with ggplot2.
+与此同时，tidytext 包并不强制用户在一次分析中全程保持文本数据为 tidy 形式，而是包含了 `tidy()` 多种对象的函数（见 broom 包），可以来自流行的文本挖掘 R 包，如 tm [@tm] 和 quanteda [@R-quanteda]。这使得类似如下的工作流成为可能：使用 dplyr 和其它 tidy 工具对数据进行导入、过滤和处理，之后转换为文档-术语矩阵进行机器学习，所得到的模型可以再被转换回 tidy 形式供解读并由 ggplot2 视觉化。
 
-## Contrasting tidy text with other data structures
+## tidy 文本与其它数据结构的对比
 
-As we stated above, we define the tidy text format as being a table with **one-token-per-row.** Structuring text data in this way means that it conforms to tidy data principles and can be manipulated with a set of consistent tools. This is worth contrasting with the ways text is often stored in text mining approaches.
+如前所述，我们定义 tidy 文本格式为一个表格，**每行一个符号**。以这种方式结构化的文本数据遵循 tidy 数据原则，可以用统一一致的工具进行操作。这值得和文本挖掘方法中常用的其它存储文本的格式进行对比。
 
-* **String**: Text can, of course, be stored as strings, i.e., character vectors, within R, and often text data is first read into memory in this form.
-* **Corpus**: These types of objects typically contain raw strings annotated with additional metadata and details.
-* **Document-term matrix**: This is a sparse matrix describing a collection (i.e., a corpus) of documents with one row for each document and one column for each term. The value in the matrix is typically word count or tf-idf (see Chapter \@ref(tfidf)).
+* **字符串**：文本当然可以用字符串存储，也就是 R 中的字符向量，这种形式的文本数据一般会先读进内存。
+* **语料**：这些种类的典型对象包含了原始的字符串，并带有额外的元数据和细节标注等。
+* **文档-术语矩阵**：这是一个稀疏矩阵，描述了文档的一个集合（即一组语料），每个文档一行，每个术语一列。矩阵中的典型数据为词的个数或 tf-idf（见章 \@ref(tfidf)）。
 
-Let's hold off on exploring corpus and document-term matrix objects until Chapter \@ref(dtm), and get down to the basics of converting text to a tidy format.
+咱们先暂时不去探索语料和文档-术语矩阵对象，章 \@ref(dtm) 将会讲到这些。从将文本转换成 tidy 格式的基础开始。
 
-## The `unnest_tokens` function
+## `unnest_tokens` 函数
 
 英文原著使用了Emily Dickinson的一首小诗，这里选取李白的《静夜思》作为中文的例子。
 
