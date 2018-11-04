@@ -92,61 +92,9 @@ text_df %>%
 knitr::include_graphics("images/tidyflow-ch-1.png")
 ```
 
-## Tidying the great works {#tidyworks}
+## tidy 化一些伟大的作品 {#tidyworks}
 
-英文世界可以使用 Jane Austen 的六部完整已发表小说 [janeaustenr](https://cran.r-project.org/package=janeaustenr) R包 [@R-janeaustenr]，并转换为 tidy 格式。中文暂时缺少此类数据，我们可以从《红楼梦》的部分文本开始。
-
-```{r great_works}
-library(dplyr)
-library(stringr)
-
-great_works <- data_frame(text = readLines("data/hongloumeng/001.txt"), chapter = "第一回") %>%
-  mutate(linenumber = row_number(), chapter = 1)
-
-great_works
-```
-
-移除过于常见的停止词并分词。
-
-```{r tidy_works, dependson = "great_works"}
-library(jiebaR)
-library(tidytext)
-
-cutter <- worker(bylines = TRUE, symbol = TRUE, stop_word = "data/stop_word_zh.utf8")
-great_works$text <- sapply(segment(great_works$text, cutter), function(x){paste(x, collapse = " ")})
-tidy_works <- great_works %>%
-  unnest_tokens(word, text)
-
-tidy_works
-```
-
-按词频进行排序。
-
-```{r dependson = "tidy_works"}
-tidy_works %>%
-  count(word, sort = TRUE)
-```
-
-用图 \@ref(fig:plotcount-zh) 展示常见词词频。由于使用文本较少，词汇量并不大。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
-
-```{r plotcount-zh, dependson = "tidy_works", fig.width=6, fig.height=5, fig.cap="《红楼梦》第一回常见词"}
-library(showtext)
-showtext_auto(enable = TRUE)
-font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
-
-myplot <- tidy_works %>%
-  count(word, sort = TRUE) %>%
-  filter(n > 20) %>%
-  mutate(word = reorder(word, n)) %>%
-  ggplot(aes(word, n)) +
-  geom_col() +
-  xlab(NULL) +
-  coord_flip() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
-print(myplot)
-```
-
-The janeaustenr package provides these texts in a one-row-per-line format, where a line is this context is analogous to a literal printed line in a physical book. Let’s start with that, and also use `mutate()` to annotate a `linenumber` quantity to keep track of lines in the original format and a `chapter` (using a regex) to find where all the chapters are.
+英文的例子可使用 [janeaustenr](https://cran.r-project.org/package=janeaustenr) [@R-janeaustenr] 引入 Jane Austen 的六部完整已发表小说的文本，并可转换为 tidy 格式。janeaustenr 包提供的文本格式每行为书页里的一行，这个行严格对应着实体书里印刷的行。咱们从这里开始，依旧使用 `mutate()` 添加 `linenumber` 批注以记录原始格式里的行数，并且添加 `chapter` 批注（使用正则表达式）以找到所有的章节位置。
 
 ```{r original_books}
 library(janeaustenr)
@@ -159,23 +107,21 @@ original_books <- austen_books() %>%
          chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]",
                                                  ignore_case = TRUE)))) %>%
   ungroup()
-
 original_books
 ```
 
-To work with this as a tidy dataset, we need to restructure it in the **one-token-per-row** format, which as we saw earlier is done with the `unnest_tokens()` function.
+要把这个当成 tidy 数据集，我们需要重构为每行一个符号的格式，早些时候我们看到可以用 `unnest_tokens()` 函数完成这个操作。
 
 ```{r tidy_books_raw, dependson = "original_books"}
 library(tidytext)
 tidy_books <- original_books %>%
   unnest_tokens(word, text)
-
 tidy_books
 ```
 
-This function uses the [tokenizers](https://github.com/ropensci/tokenizers) package to separate each line of text in the original data frame into tokens. The default tokenizing is for words, but other options include characters, n-grams, sentences, lines, paragraphs, or separation around a regex pattern.
+这个函数使用 [tokenizers](https://github.com/ropensci/tokenizers) [R-tokenizers] 包把原始数据框里的每行文本按符号分开。默认按词符号化，而其它选项包括了字符、n元组、句、行、段落，以及正则表达式。
 
-Now that the data is in one-word-per-row format, we can manipulate it with tidy tools like dplyr. Often in text analysis, we will want to remove stop words; stop words are words that are not useful for an analysis, typically extremely common words such as "the", "of", "to", and so forth in English. We can remove stop words (kept in the tidytext dataset `stop_words`) with an `anti_join()`.
+现在数据已经是每行一词的格式，我们可以用 tidy 工具如 dplyr 进行操作了。对于文本分析，我们经常想要移除停止词；停止词是对分析没有帮助的词，典型的停止词包括极度常见的词，如英文里的 "the"、"of"、"to"等等。我们可以用 `anti_join()` 移除停止词（tidytext 的数据集里存有 `stop_words`）。
 
 ```{r tidy_books, dependson = "tidy_books_raw"}
 data(stop_words)
@@ -184,19 +130,18 @@ tidy_books <- tidy_books %>%
   anti_join(stop_words)
 ```
 
-The `stop_words` dataset in the tidytext package contains stop words from three lexicons. We can use them all together, as we have here, or `filter()` to only use one set of stop words if that is more appropriate for a certain analysis.
+tidytext 包里的 `stop_words` 数据集包含有分别来自三个词典的停止词。我们可以一起使用，就像上面这样，或用 `filter()` 来选择对特定的分析更合适的一个停止词数据集。
 
-We can also use dplyr's `count()` to find the most common words in all the books as a whole.
+我们还可以用 dplyr 的 `count()` 找出所有书作为一个整体最常见的词。
 
 ```{r dependson = "tidy_books"}
 tidy_books %>%
   count(word, sort = TRUE) 
 ```
 
-Because we've been using tidy tools, our word counts are stored in a tidy data frame. This allows us to pipe this directly to the ggplot2 package, for example to create a visualization of the most common words (Figure \@ref(fig:plotcount)).
+因为我们一直在使用 tidy 工具，词的个数存在一个 tidy 数据框里。这让我们可以把它直接通过管道传给 ggplot2 包，例如创建一个最常见的词的可视化（图 \@ref(fig:plotcount)）。
 
 ```{r plotcount, dependson = "tidy_books", fig.width=6, fig.height=5, fig.cap="The most common words in Jane Austen's novels"}
-
 tidy_books %>%
   count(word, sort = TRUE) %>%
   filter(n > 600) %>%
@@ -207,7 +152,56 @@ tidy_books %>%
   coord_flip()
 ```
 
-Note that the `austen_books()` function started us with exactly the text we wanted to analyze, but in other cases we may need to perform cleaning of text data, such as removing copyright headers or formatting. You'll see examples of this kind of pre-processing in the case study chapters, particularly Chapter \@ref(pre-processing-text). 
+需要注意的是， `austen_books()` 函数恰好提供给了我们想要分析的数据，但其它情况下我们可能需要对文本数据进行清洗，比如去除版权信息或重新格式化。在案例分析的章节里将看到这种预处理的例子，特别是章 \@ref(pre-processing-text)。
+
+中文暂时缺少类似 janeaustenr 这样的数据集，我们可以从《红楼梦》的部分文本开始。
+
+```{r great_works}
+library(dplyr)
+library(stringr)
+
+great_works <- data_frame(text = readLines("data/hongloumeng/001.txt"), chapter = "第一回") %>%
+  mutate(linenumber = row_number(), chapter = 1)
+great_works
+```
+
+移除过于常见的停止词并分词。注意和第一个例子的区别，这次我们没有保留标点符号（即使保留了也会在下一步被移除）。另外，由于中英文的不同以及包的具体实现有差别，我们直接在分词的阶段就把停止词移除了。
+
+```{r tidy_works, dependson = "great_works"}
+library(jiebaR)
+library(tidytext)
+
+cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
+great_works$text <- sapply(segment(great_works$text, cutter), function(x){paste(x, collapse = " ")})
+tidy_works <- great_works %>%
+  unnest_tokens(word, text)
+tidy_works
+```
+
+按词频进行排序。
+
+```{r dependson = "tidy_works"}
+tidy_works %>%
+  count(word, sort = TRUE)
+```
+
+图 \@ref(fig:plotcount-zh) 展示了常见词词频，由于本次使用文本较少，词的数量并不大。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
+
+```{r plotcount-zh, dependson = "tidy_works", fig.width=6, fig.height=5, fig.cap="《红楼梦》第一回常见词"}
+library(showtext)
+showtext_auto(enable = TRUE)
+font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
+
+tidy_works %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 20) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+```
 
 ## The gutenbergr package
 
