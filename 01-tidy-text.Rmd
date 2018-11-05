@@ -220,11 +220,13 @@ tidy_hongloumeng %>%
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-## Word frequencies
+## 词频
 
-A common task in text mining is to look at word frequencies, just like we have done above for Jane Austen's novels, and to compare frequencies across different texts. We can do this intuitively and smoothly using tidy data principles. We already have Jane Austen's works; let's get two more sets of texts to compare to. First, let's look at some science fiction and fantasy novels by H.G. Wells, who lived in the late 19th and early 20th centuries. Let's get [*The Time Machine*](https://www.gutenberg.org/ebooks/35), [*The War of the Worlds*](https://www.gutenberg.org/ebooks/36), [*The Invisible Man*](https://www.gutenberg.org/ebooks/5230), and [*The Island of Doctor Moreau*](https://www.gutenberg.org/ebooks/159). We can access these works using `gutenberg_download()` and the Project Gutenberg ID numbers for each novel.
+文本挖掘中一个通用的任务是察看词频，就像我们前面完成的那样，然后可以在不同的文本间比较词出现的频率。使用 tidy 数据原则，我们可以很自然平滑地完成这个任务。
 
-中文我们可以使用冯梦龙的《三言》和袁枚《子不语》《续子不语》分别与《红楼梦》进行比较。冯梦龙[明]时间较早，而曹雪芹[清]与袁枚[清]处于同一时代，但题材上《红楼梦》与《三言》更为接近。这些作品间的相似程度将如何呢？
+英文原著用威尔斯（19世纪末二十世纪初）的科幻小说和勃朗特姐妹（十九世纪，活动时间晚于奥斯汀）作品集分别与简·奥斯汀的作品（主要出版于十九世纪一〇年代）进行比较。中文我们可以使用冯梦龙的《三言》和袁枚《子不语》《续子不语》分别与《红楼梦》进行比较。冯梦龙[明]时间较早，而曹雪芹[清]与袁枚[清]处于同一时代，但题材上《红楼梦》与《三言》更为接近。这些作品间的相似程度将如何呢？
+
+使用 `gutenberg_download()` 和相应的ID获取各个作品，按作家存储。
 
 ```{r eval = FALSE}
 library(gutenbergr)
@@ -273,9 +275,9 @@ tidy_zibuyu %>%
   count(word, sort = TRUE)
 ```
 
-看起来“人”在所有作品里都是最常见的。
+看起来“人”在所有作品里都属于最常见的词。关注一下意思相当于“说”的词汇：《红楼梦》中，“道”和“说”都非常多（当然，有部分“道”是道士的道）；《三言》里就只有“道”排在前面；《子不语》两部中只有“曰”上榜。这可能是由于文体（文言多用曰）及时代（说这个用法较后起）的差异。
 
-Now, let's calculate the frequency for each word for the works of Jane Austen, the Brontë sisters, and H.G. Wells by binding the data frames together. We can use `spread` and `gather` from tidyr to reshape our dataframe so that it is just what we need for plotting and comparing the three sets of novels.
+现在，计算一下每个词在每位作家的作品中出现的频率，把数据框绑定到一起。我们可以使用 tidyr 中的 `spread` 和 `gather` 重新定形数据框，只留下我们画图需要的点，以便对三个作品集进行比较。
 
 ```{r frequency, dependson = c("tidy_hongloumeng", "tidy_sanyan", "tidy_zibuyu")}
 library(tidyr)
@@ -283,6 +285,7 @@ library(tidyr)
 frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
                        mutate(tidy_sanyan, author = "冯梦龙"),
                        mutate(tidy_hongloumeng, author = "Cao")) %>%
+  #mutate(word = str_extract(word, "[a-z']+")) %>%
   count(author, word) %>%
   group_by(author) %>%
   mutate(proportion = n / sum(n)) %>% 
@@ -291,9 +294,9 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
   gather(author, proportion, `袁枚`:`冯梦龙`)
 ```
 
-We use `str_extract()` here because the UTF-8 encoded texts from Project Gutenberg have some examples of words with underscores around them to indicate emphasis (like italics). The tokenizer treated these as words, but we don't want to count "\_any\_" separately from "any" as we saw in our initial data exploration before choosing to use `str_extract()`. 
+注释掉的行用 `str_extract()` 是因为来自古登堡计划的UTF-8编码文本为了表示强调（比如斜体）在词前后加了下划线，符号化的时候这些词不应该独立计数。在选用 `str_extract()` 之前做的初步数据探索中，诸如“\_any\_”就没有算成“any”。对于这里的中文数据集，由于分词方法不同，这一步骤无需使用。
 
-Now let's plot (Figure \@ref(fig:plotcompare)).
+现在绘图（图 \@ref(fig:plotcompare)）。
 
 ```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="比较曹雪芹、冯梦龙与袁枚作品的词频"}
 library(scales)
@@ -312,11 +315,11 @@ ggplot(frequency, aes(x = proportion, y = `Cao`, color = abs(`Cao` - proportion)
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-Words that are close to the line in these plots have similar frequencies in both sets of texts, for example, in both Austen and Brontë texts ("miss", "time", "day" at the upper frequency end) or in both Austen and Wells texts ("time", "day", "brother" at the high frequency end). Words that are far from the line are words that are found more in one set of texts than another. For example, in the Austen-Brontë panel, words like "elizabeth", "emma", and "fanny" (all proper nouns) are found in Austen's texts but not much in the Brontë texts, while words like "arthur" and "dog" are found in the Brontë texts but not the Austen texts. In comparing H.G. Wells with Jane Austen, Wells uses words like "beast", "guns", "feet", and "black" that Austen does not, while Austen uses words like "family", "friend", "letter", and "dear" that Wells does not.
+靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在曹雪芹和冯梦龙的文本中，而“不”“見”“上”同时高频出现在曹雪芹和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在曹雪芹-冯梦龙一侧的图中，诸如“寳玉”“太太”“賈”这些词（全是人名和称谓）在曹雪芹文本中多见，而在冯梦龙文本中就不多，同时“員外”“郎”在冯梦龙文本中更多见而非曹雪芹文本。比较袁枚与曹雪芹，袁枚用词“某”“曰”较多而曹雪芹不用，曹雪芹用词“這”“呢”较多而袁枚不用。
 
-Overall, notice in Figure \@ref(fig:plotcompare) that the words in the Austen-Brontë panel are closer to the zero-slope line than in the Austen-Wells panel. Also notice that the words extend to lower frequencies in the Austen-Brontë panel; there is empty space in the Austen-Wells panel at low frequency. These characteristics indicate that Austen and the Brontë sisters use more similar words than Austen and H.G. Wells. Also, we see that not all the words are found in all three sets of texts and there are fewer data points in the panel for Austen and H.G. Wells.
+整体来看，注意到在图 \@ref(fig:plotcompare) 中曹雪芹-冯梦龙侧比曹雪芹-袁枚侧更接近过零点的斜线。同时注意曹雪芹-冯梦龙侧的词向更低频扩展更多；曹雪芹-袁枚侧在低频词处有片空白区域。这些特征说明曹雪芹与冯梦龙用词比曹雪芹与袁枚用词更为接近。还可以看到并非所有词在全部三个文本集中都能找到，曹雪芹-袁枚侧的数据点偏少。
 
-Let's quantify how similar and different these sets of word frequencies are using a correlation test. How correlated are the word frequencies between Austen and the Brontë sisters, and between Austen and Wells?
+我们用相关度检验量化一下这些词频集的相似和不同的程度。曹雪芹与冯梦龙词频的相关度如何？曹雪芹与袁枚呢？
 
 ```{r cor_test, dependson = "frequency"}
 cor.test(data = frequency[frequency$author == "冯梦龙",],
@@ -325,7 +328,7 @@ cor.test(data = frequency[frequency$author == "袁枚",],
          ~ proportion + `Cao`)
 ```
 
-Just as we saw in the plots, the word frequencies are more correlated between the Austen and Brontë novels than between Austen and H.G. Wells.
+正如我们在图中所见，词频在曹雪芹和冯梦龙的小说中相关度要高于曹雪芹和袁枚。基本上，这个结论也符合主观的观感。
 
 ## Summary
 
