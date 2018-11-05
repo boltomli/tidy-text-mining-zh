@@ -113,7 +113,6 @@ original_books
 要把这个当成 tidy 数据集，我们需要重构为每行一个符号的格式，早些时候我们看到可以用 `unnest_tokens()` 函数完成这个操作。
 
 ```{r tidy_books_raw, dependson = "original_books"}
-library(tidytext)
 tidy_books <- original_books %>%
   unnest_tokens(word, text)
 tidy_books
@@ -185,9 +184,6 @@ load("data/hongloumeng.rda")
 移除过于常见的停止词并分词。注意和第一个例子的区别，这次我们没有保留标点符号（即使保留了也会在下一步被移除）。另外，由于中英文的不同以及包的具体实现有差别，我们直接在分词的阶段就把停止词移除了。
 
 ```{r tidy_hongloumeng, dependson = "hongloumeng"}
-library(jiebaR)
-library(tidytext)
-
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_hongloumeng <- hongloumeng %>%
@@ -229,8 +225,6 @@ tidy_hongloumeng %>%
 使用 `gutenberg_download()` 和相应的ID获取各个作品，按作家存储。
 
 ```{r eval = FALSE}
-library(gutenbergr)
-
 sanyan <- gutenberg_download(c(24141, 24239, 27582))
 zibuyu <- gutenberg_download(c(25245, 25315))
 ```
@@ -242,9 +236,6 @@ load("data/sanyan.rda")
 ```
 
 ```{r tidy_sanyan, dependson = "sanyan"}
-library(jiebaR)
-
-cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 sanyan$text <- sapply(segment(sanyan$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_sanyan <- sanyan %>%
   unnest_tokens(word, text)
@@ -262,9 +253,6 @@ load("data/zibuyu.rda")
 ```
 
 ```{r tidy_zibuyu, dependson = "zibuyu"}
-library(jiebaR)
-
-cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 zibuyu$text <- sapply(segment(zibuyu$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_zibuyu <- zibuyu %>%
   unnest_tokens(word, text)
@@ -277,7 +265,7 @@ tidy_zibuyu %>%
 
 看起来“人”在所有作品里都属于最常见的词。关注一下意思相当于“说”的词汇：《红楼梦》中，“道”和“说”都非常多（当然，有部分“道”是道士的道）；《三言》里就只有“道”排在前面；《子不语》两部中只有“曰”上榜。这可能是由于文体（文言多用曰）及时代（说这个用法较后起）的差异。
 
-现在，计算一下每个词在每位作家的作品中出现的频率，把数据框绑定到一起。我们可以使用 tidyr 中的 `spread` 和 `gather` 重新定形数据框，只留下我们画图需要的点，以便对三个作品集进行比较。
+现在，计算一下每个词在每位作家的作品中出现的频率，把数据框绑定到一起。我们可以使用 tidyr 中的 `spread` 和 `gather` 重新定形数据框，只留下绘图需要的点，以便对三个作品集进行比较。
 
 ```{r frequency, dependson = c("tidy_hongloumeng", "tidy_sanyan", "tidy_zibuyu")}
 library(tidyr)
@@ -330,6 +318,6 @@ cor.test(data = frequency[frequency$author == "袁枚",],
 
 正如我们在图中所见，词频在曹雪芹和冯梦龙的小说中相关度要高于曹雪芹和袁枚。基本上，这个结论也符合主观的观感。
 
-## Summary
+## 小结
 
-In this chapter, we explored what we mean by tidy data when it comes to text, and how tidy data principles can be applied to natural language processing. When text is organized in a format with one token per row, tasks like removing stop words or calculating word frequencies are natural applications of familiar operations within the tidy tool ecosystem. The one-token-per-row framework can be extended from single words to n-grams and other meaningful units of text, as well as to many other analysis priorities that we will consider in this book.
+在本章中，我们探索了什么叫做将 tidy 数据用于文本，以及 tidy 数据原则如何被应用到自然语言处理中。当文本按照每行一个符号的格式组织的时候，诸如移除停止词或计算词频等任务正是 tidy 工具生态内部熟悉操作的自然应用。每行一个符号的框架可以从单个词扩展到n元组及其它有意义的文本单元，我们在本书中将认识到很多其它类型可供分析时优先选用。
