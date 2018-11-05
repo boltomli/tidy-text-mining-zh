@@ -28,7 +28,7 @@ Tidy 数据集可以使用一组标准的 “tidy” 工具进行操作，包括
 * **语料**：这些种类的典型对象包含了原始的字符串，并带有额外的元数据和细节标注等。
 * **文档-术语矩阵**：这是一个稀疏矩阵，描述了文档的一个集合（即一组语料），每个文档一行，每个术语一列。矩阵中的典型数据为词的个数或 tf-idf（见章 \@ref(tfidf)）。
 
-咱们先暂时不去探索语料和文档-术语矩阵对象，章 \@ref(dtm) 将会讲到这些。从将文本转换成 tidy 格式的基础开始。
+暂时先不探索语料和文档-术语矩阵对象，章 \@ref(dtm) 将会讲到。这里我们从将文本转换成 tidy 格式的基础开始。
 
 ## `unnest_tokens` 函数
 
@@ -236,12 +236,10 @@ load("data/sanyan.rda")
 ```
 
 ```{r tidy_sanyan, dependson = "sanyan"}
+cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 sanyan$text <- sapply(segment(sanyan$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_sanyan <- sanyan %>%
   unnest_tokens(word, text)
-```
-
-```{r dependson = "tidy_sanyan"}
 tidy_sanyan %>%
   count(word, sort = TRUE)
 ```
@@ -253,12 +251,10 @@ load("data/zibuyu.rda")
 ```
 
 ```{r tidy_zibuyu, dependson = "zibuyu"}
+cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 zibuyu$text <- sapply(segment(zibuyu$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_zibuyu <- zibuyu %>%
   unnest_tokens(word, text)
-```
-
-```{r dependson = "tidy_zibuyu"}
 tidy_zibuyu %>%
   count(word, sort = TRUE)
 ```
@@ -274,6 +270,7 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
                        mutate(tidy_sanyan, author = "冯梦龙"),
                        mutate(tidy_hongloumeng, author = "Cao")) %>%
   #mutate(word = str_extract(word, "[a-z']+")) %>%
+  mutate(word = str_extract(word, "[^a-z0-9']+")) %>%
   count(author, word) %>%
   group_by(author) %>%
   mutate(proportion = n / sum(n)) %>% 
@@ -282,7 +279,7 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
   gather(author, proportion, `袁枚`:`冯梦龙`)
 ```
 
-注释掉的行用 `str_extract()` 是因为来自古登堡计划的UTF-8编码文本为了表示强调（比如斜体）在词前后加了下划线，符号化的时候这些词不应该独立计数。在选用 `str_extract()` 之前做的初步数据探索中，诸如“\_any\_”就没有算成“any”。对于这里的中文数据集，由于分词方法不同，这一步骤无需使用。
+注释掉的行里 `str_extract()` 的用途是去掉下划线等，因为来自古登堡计划的UTF-8编码文本为了表示强调（斜体）在相应词的前后加了下划线，符号化的时候这些词不应该独立计数。在选用 `str_extract()` 之前做的初步数据探索中，“\_any\_”没有算成“any”。对于中文数据集，由于分词方法不同，这一步骤无需使用，相反需要考虑过滤掉英文和数字等，如其下一行代码所示。
 
 现在绘图（图 \@ref(fig:plotcompare)）。
 
@@ -310,10 +307,8 @@ ggplot(frequency, aes(x = proportion, y = `Cao`, color = abs(`Cao` - proportion)
 我们用相关度检验量化一下这些词频集的相似和不同的程度。曹雪芹与冯梦龙词频的相关度如何？曹雪芹与袁枚呢？
 
 ```{r cor_test, dependson = "frequency"}
-cor.test(data = frequency[frequency$author == "冯梦龙",],
-         ~ proportion + `Cao`)
-cor.test(data = frequency[frequency$author == "袁枚",],
-         ~ proportion + `Cao`)
+cor.test(data = frequency[frequency$author == "冯梦龙",], ~ proportion + `Cao`)
+cor.test(data = frequency[frequency$author == "袁枚",], ~ proportion + `Cao`)
 ```
 
 正如我们在图中所见，词频在曹雪芹和冯梦龙的小说中相关度要高于曹雪芹和袁枚。基本上，这个结论也符合主观的观感。
