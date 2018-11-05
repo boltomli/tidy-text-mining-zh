@@ -92,7 +92,7 @@ text_df %>%
 knitr::include_graphics("images/tidyflow-ch-1.png")
 ```
 
-## tidy 化一些伟大的作品 {#tidyworks}
+## 用 tidy 处理大作 {#tidyworks}
 
 英文的例子可使用 [janeaustenr](https://cran.r-project.org/package=janeaustenr) [@R-janeaustenr] 引入 Jane Austen 的六部完整已发表小说的文本，并可转换为 tidy 格式。janeaustenr 包提供的文本格式每行为书页里的一行，这个行严格对应着实体书里印刷的行。咱们从这里开始，依旧使用 `mutate()` 添加 `linenumber` 批注以记录原始格式里的行数，并且添加 `chapter` 批注（使用正则表达式）以找到所有的章节位置。
 
@@ -154,58 +154,9 @@ tidy_books %>%
 
 需要注意的是， `austen_books()` 函数恰好提供给了我们想要分析的数据，但其它情况下我们可能需要对文本数据进行清洗，比如去除版权信息或重新格式化。在案例分析的章节里将看到这种预处理的例子，特别是章 \@ref(pre-processing-text)。
 
-中文暂时缺少类似 janeaustenr 这样的数据集，我们可以从《红楼梦》的部分文本开始。
-
-```{r great_works}
-library(dplyr)
-library(stringr)
-
-great_works <- data_frame(text = readLines("data/hongloumeng/001.txt"), chapter = "第一回") %>%
-  mutate(linenumber = row_number(), chapter = 1)
-great_works
-```
-
-移除过于常见的停止词并分词。注意和第一个例子的区别，这次我们没有保留标点符号（即使保留了也会在下一步被移除）。另外，由于中英文的不同以及包的具体实现有差别，我们直接在分词的阶段就把停止词移除了。
-
-```{r tidy_works, dependson = "great_works"}
-library(jiebaR)
-library(tidytext)
-
-cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-great_works$text <- sapply(segment(great_works$text, cutter), function(x){paste(x, collapse = " ")})
-tidy_works <- great_works %>%
-  unnest_tokens(word, text)
-tidy_works
-```
-
-按词频进行排序。
-
-```{r dependson = "tidy_works"}
-tidy_works %>%
-  count(word, sort = TRUE)
-```
-
-图 \@ref(fig:plotcount-zh) 展示了常见词词频，由于本次使用文本较少，词的数量并不大。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
-
-```{r plotcount-zh, dependson = "tidy_works", fig.width=6, fig.height=5, fig.cap="《红楼梦》第一回常见词"}
-library(showtext)
-showtext_auto(enable = TRUE)
-font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
-
-tidy_works %>%
-  count(word, sort = TRUE) %>%
-  filter(n > 20) %>%
-  mutate(word = reorder(word, n)) %>%
-  ggplot(aes(word, n)) +
-  geom_col() +
-  xlab(NULL) +
-  coord_flip() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
-```
-
 ## gutenbergr 包
 
-现在我们用过 janeaustenr 包探索如何 tidy 文本，下面介绍一下 [gutenbergr](https://github.com/ropensci/gutenbergr) 包 [@R-gutenbergr]。使用 gutenbergr 包可访问来自[古登堡计划](https://www.gutenberg.org/)的公共领域作品集。包中有下载书籍的工具（且去除了用不上的头部、尾部信息），还有一份完整的古登堡计划数据集元数据，可以用来寻找感兴趣的作品。在这本书中，我们主要使用 `gutenberg_download()` 函数通过ID从古登堡计划下载一部或多部作品，不过也可使用其它函数来探索元数据，将古登堡ID与作品名、作者、语言等匹配，或是收集有关作者的信息。我们要使用的中文作品就是在如下数据中选出的。
+首先介绍一下 [gutenbergr](https://github.com/ropensci/gutenbergr) 包 [@R-gutenbergr]。使用 gutenbergr 包可访问来自[古登堡计划](https://www.gutenberg.org/)的公共领域作品集。包中有下载书籍的工具（且去除了用不上的头部、尾部信息），还有一份完整的古登堡计划数据集元数据，可以用来寻找感兴趣的作品。在这本书中，我们主要使用 `gutenberg_download()` 函数通过ID从古登堡计划下载一部或多部作品，不过也可使用其它函数来探索元数据，将古登堡ID与作品名、作者、语言等匹配，或是收集有关作者的信息。我们后面要使用的中文作品就是在如下数据中选出的。
 
 ```{r gutenberg-zh}
 library(gutenbergr)
@@ -217,6 +168,58 @@ gutenberg_works(languages = "zh")
 To learn more about gutenbergr, check out the [package's tutorial at rOpenSci](https://ropensci.org/tutorials/gutenbergr_tutorial.html), where it is one of rOpenSci's packages for data access.
 ```
 
+## 用 tidy 处理中文大作 {#tidyworks-zh}
+
+中文暂时缺少已整理好的类似 janeaustenr 这样的数据集，我们可以从《红楼梦》的文本开始。
+
+```{r eval = FALSE}
+library(gutenbergr)
+
+hongloumeng <- gutenberg_download(24264)
+```
+
+```{r hongloumeng, echo = FALSE}
+load("data/hongloumeng.rda")
+```
+
+移除过于常见的停止词并分词。注意和第一个例子的区别，这次我们没有保留标点符号（即使保留了也会在下一步被移除）。另外，由于中英文的不同以及包的具体实现有差别，我们直接在分词的阶段就把停止词移除了。
+
+```{r tidy_hongloumeng, dependson = "hongloumeng"}
+library(jiebaR)
+library(tidytext)
+
+cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
+hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
+tidy_hongloumeng <- hongloumeng %>%
+  unnest_tokens(word, text)
+tidy_hongloumeng
+```
+
+按词频进行排序。
+
+```{r dependson = "tidy_hongloumeng"}
+tidy_hongloumeng %>%
+  count(word, sort = TRUE)
+```
+
+图 \@ref(fig:plotcount-zh) 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
+
+```{r plotcount-zh, dependson = "tidy_hongloumeng", fig.width=6, fig.height=5, fig.cap="《红楼梦》常见词"}
+library(showtext)
+showtext_auto(enable = TRUE)
+font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
+
+tidy_hongloumeng %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 4000) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip() +
+  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+```
+
 ## Word frequencies
 
 A common task in text mining is to look at word frequencies, just like we have done above for Jane Austen's novels, and to compare frequencies across different texts. We can do this intuitively and smoothly using tidy data principles. We already have Jane Austen's works; let's get two more sets of texts to compare to. First, let's look at some science fiction and fantasy novels by H.G. Wells, who lived in the late 19th and early 20th centuries. Let's get [*The Time Machine*](https://www.gutenberg.org/ebooks/35), [*The War of the Worlds*](https://www.gutenberg.org/ebooks/36), [*The Invisible Man*](https://www.gutenberg.org/ebooks/5230), and [*The Island of Doctor Moreau*](https://www.gutenberg.org/ebooks/159). We can access these works using `gutenberg_download()` and the Project Gutenberg ID numbers for each novel.
@@ -226,29 +229,8 @@ A common task in text mining is to look at word frequencies, just like we have d
 ```{r eval = FALSE}
 library(gutenbergr)
 
-hongloumeng <- gutenberg_download(24264)
 sanyan <- gutenberg_download(c(24141, 24239, 27582))
 zibuyu <- gutenberg_download(c(25245, 25315))
-```
-
-这次我们使用《红楼梦》的全文。
-
-```{r hongloumeng, echo = FALSE}
-load("data/hongloumeng.rda")
-```
-
-```{r tidy_hongloumeng, dependson = "hongloumeng"}
-library(jiebaR)
-
-cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
-tidy_hongloumeng <- hongloumeng %>%
-  unnest_tokens(word, text)
-```
-
-```{r dependson = "tidy_hongloumeng"}
-tidy_hongloumeng %>%
-  count(word, sort = TRUE)
 ```
 
 简单试一下，看看冯梦龙这些小说里最常用的词是什么。
