@@ -18,13 +18,15 @@ The statistic **tf-idf** is intended to measure how important a word is to a doc
 
 这是条经验法则，是启发性质的量化；尽管可以验证 tf-idf 在文本挖掘、搜索引擎等应用中有效，信息理论专家认为其理论基础尚薄弱。任意给定的术语的逆向文档频率定义为：
 
-$$idf(\text{term}) = \ln{\left(\frac{n_{\text{documents}}}{n_{\text{documents containing term}}}\right)}$$
+$$idf(\text{术语}) = \ln{\left(\frac{n_{\text{文档的数量}}}{n_{\text{含有术语的文档的数量}}}\right)}$$
+
+如果上面的公式看不清楚，可以在其上点击右键，选择 `Math Settings -> Math Renderer -> HTML-CSS` 或其它合适的选项。有时候 MathJax 默认选项对中文支持不佳。
 
 我们可以如同章 \@ref(tidytext) 中描述的那样使用 tidy 数据原则进行 tf-idf 分析，使用一致、有效的工具来量化不同术语对一组文档中的一个文档的重要程度。
 
-## Term frequency in Jane Austen's novels
+## 《红楼梦》中的词频（tf）
 
-Let's start by looking at the published novels of Jane Austen and examine first term frequency, then tf-idf. We can start just by using dplyr verbs such as `group_by()` and `join()`. What are the most commonly used words in Jane Austen's novels? (Let's also calculate the total words in each novel here, for later use.)
+从查看词频开始，然后才是 tf-idf。我们首先使用 dplyr 的功能，如 `group_by()` 和 `join()`。《红楼梦》中最常用的词有哪些？（为了后面计算 tf-idf，我们需要一组文档，因此把《红楼梦》按每二十章共分为六个部分。）
 
 ```{r chapter_words}
 library(jiebaR)
@@ -53,9 +55,9 @@ chapter_words <- left_join(chapter_words, total_words)
 chapter_words
 ```
 
-There is one row in this `book_words` data frame for each word-book combination; `n` is the number of times that word is used in that book and `total` is the total words in that book. The usual suspects are here with the highest `n`, "the", "and", "to", and so forth. In Figure \@ref(fig:plottf), let's look at the distribution of `n/total` for each novel, the number of times a word appears in a novel divided by the total number of terms (words) in that novel. This is exactly what term frequency is.
+此 `chapter_words` 数据框中每个词-部分之组合一行；`n` 是该词在该部分中出现的次数，`total` 是该部分全部词的数量。有最高 `n` 值的通常怀疑对象显然包括了“了”和“的”等。在图 \@ref(fig:plottf)中，可以看到每部分中 `n/total` 的分布，一个词在一部分中出现的次数除以该部分所有术语（即词）的总量。这就是词频的含义。
 
-```{r plottf, dependson = "chapter_words", fig.height=9, fig.width=9, fig.cap="Term Frequency Distribution in Jane Austen's Novels"}
+```{r plottf, dependson = "chapter_words", fig.height=9, fig.width=9, fig.cap="《红楼梦》各部分的词频分布"}
 library(showtext)
 showtext_auto(enable = TRUE)
 font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
@@ -67,17 +69,17 @@ ggplot(chapter_words, aes(n/total, fill = chapter)) +
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-There are very long tails to the right for these novels (those extremely common words!) that we have not shown in these plots. These plots exhibit similar distributions for all the novels, with many words that occur rarely and fewer words that occur frequently.
+每个部分的右侧都有很长的长尾（那些十分常见的词！），在图中并未显示。这些图显示了所有部分都有相似的分布，即很多词出现得不多而较少词出现很频繁。
 
-## Zipf's law
+## 齐夫定律（Zipf's law）
 
-Distributions like those shown in Figure \@ref(fig:plottf) are typical in language. In fact, those types of long-tailed distributions are so common in any given corpus of natural language (like a book, or a lot of text from a website, or spoken words) that the relationship between the frequency that a word is used and its rank has been the subject of study; a classic version of this relationship is called Zipf's law, after George Zipf, a 20th century American linguist. 
+如图 \@ref(fig:plottf) 所示的分布在语言中很典型。实际上，给出任何自然语言的语料（如一本书，来自网站的大量文本，或是大量口述），长尾分布的类型都如此常见，因此一个词的频率与其排名的关系一直是研究的对象；这种关系的一个经典版本叫做齐夫定律，来自一位20世纪美国语言学家乔治·齐夫。
 
 ```{block, type = "rmdnote"}
 Zipf's law states that the frequency that a word appears is inversely proportional to its rank. 
 ```
 
-Since we have the data frame we used to plot term frequency, we can examine Zipf's law for Jane Austen's novels with just a few lines of dplyr functions.
+有了用来绘制词频的数据框，只要几行 dplyr 函数即可在《红楼梦》的各部分上检验齐夫定律。
 
 ```{r freq_by_rank, dependson = chapter_words}
 freq_by_rank <- chapter_words %>% 
@@ -88,9 +90,9 @@ freq_by_rank <- chapter_words %>%
 freq_by_rank
 ```
 
-The `rank` column here tells us the rank of each word within the frequency table; the table was already ordered by `n` so we could use `row_number()` to find the rank. Then, we can calculate the term frequency in the same way we did before. Zipf's law is often visualized by plotting rank on the x-axis and term frequency on the y-axis, on logarithmic scales. Plotting this way, an inversely proportional relationship will have a constant, negative slope.
+这里的 `rank` 列显示了频率表内每个词的排名；由于表已经按 `n` 排序，我们可以用 `row_number()` 来确定排名。之后，我们可以按与之前一样的方式计算词频。要可视化齐夫定律，通常以排名为横坐标，词频为纵坐标，均使用对数比例。这种方式得到的逆向比例关系图像有稳定的负斜率。
 
-```{r zipf, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="Zipf's law for Jane Austen's novels"}
+```{r zipf, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="《红楼梦》中的齐夫定律"}
 freq_by_rank %>% 
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
@@ -99,32 +101,32 @@ freq_by_rank %>%
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-Notice that Figure \@ref(fig:zipf) is in log-log coordinates. We see that all six of Jane Austen's novels are similar to each other, and that the relationship between rank and frequency does have negative slope. It is not quite constant, though; perhaps we could view this as a broken [power law](https://en.wikipedia.org/wiki/Power_law) with, say, three sections. Let's see what the exponent of the power law is for the middle section of the rank range.
+注意，图 \@ref(fig:zipf) 中的坐标轴为对数-对数关系。可以看出，《红楼梦》的六个部分都很相似，排名与频率间的关系呈现负斜率，然而并不十分恒定。也许我们可以把这条线分成比方说三段，呈现为[幂定律](https://en.wikipedia.org/wiki/Power_law)。来看一下排名区间位于中段的幂指数如何。
 
 ```{r lower_rank, dependson = "freq_by_rank"}
 rank_subset <- freq_by_rank %>% 
-  filter(rank < 300,
-         rank > 30)
+  filter(rank < 500,
+         rank > 10)
 
 lm(log10(`term frequency`) ~ log10(rank), data = rank_subset)
 ```
 
-Classic versions of Zipf's law have
+经典版本的齐夫定律有
 
-$$\text{frequency} \propto \frac{1}{\text{rank}}$$
-and we have in fact gotten a slope close to -1 here. Let's plot this fitted power law with the data in Figure \@ref(fig:zipffit) to see how it looks.
+$$\text{频率} \propto \frac{1}{\text{排名}}$$
+而我们实际上已经得到了接近 -1 的斜率。把拟合的幂定律绘制到图 \@ref(fig:zipffit) 里看看是什么样。
 
-```{r zipffit, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="Fitting an exponent for Zipf's law with Jane Austen's novels"}
+```{r zipffit, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="带有拟合指数的《红楼梦》中的齐夫定律"}
 freq_by_rank %>% 
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
-  geom_abline(intercept = -0.94, slope = -0.94, color = "gray50", linetype = 2) +
+  geom_abline(intercept = -0.90, slope = -0.96, color = "gray50", linetype = 2) +
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
   scale_x_log10() +
   scale_y_log10() +
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-We have found a result close to the classic version of Zipf's law for the corpus of Jane Austen's novels. The deviations we see here at high rank are not uncommon for many kinds of language; a corpus of language often contains fewer rare words than predicted by a single power law. The deviations at low rank are more unusual. Jane Austen uses a lower percentage of the most common words than many collections of language. This kind of analysis could be extended to compare authors, or to compare any other collections of text; it can be implemented simply using tidy data principles.
+我们在《红楼梦》的语料中发现了和经典版本齐夫定律接近的结果。在高排名端的情况并不特别，很多语言都如此；语料中通常含有比单一幂定律的预测更少的不常见词。在低排名端的变化较不寻常。曹雪芹用得最多的词的占比低于很多其它语料。这种分析可以扩展到比较不同作家，或是比较不同的文本集合；用 tidy 数据原则很容易做到。
 
 ## The `bind_tf_idf` function
 
