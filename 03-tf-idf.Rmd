@@ -28,15 +28,18 @@ Let's start by looking at the published novels of Jane Austen and examine first 
 
 ```{r chapter_words}
 library(jiebaR)
+library(dplyr)
 library(stringr)
+library(tidytext)
 
 load("data/hongloumeng.rda")
 cutter <- worker(bylines = TRUE)
 hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
 chapter_words <- hongloumeng %>%
   mutate(linenumber = row_number(),
-       chapter = cumsum(str_detect(text,
-                                   "^第[一二三四五六七八九零百 ]+十\ ?回"))) %>%
+       chapter = paste("第",
+                       1 + cumsum(str_detect(text, "^第[零一二三四五六七八九十百 ]*([二四六八 ]+十|零) ?一回")),
+                       "部分")) %>%
   ungroup() %>%
   unnest_tokens(word, text) %>%
   count(chapter, word, sort = TRUE) %>%
@@ -100,8 +103,8 @@ Notice that Figure \@ref(fig:zipf) is in log-log coordinates. We see that all si
 
 ```{r lower_rank, dependson = "freq_by_rank"}
 rank_subset <- freq_by_rank %>% 
-  filter(rank < 500,
-         rank > 10)
+  filter(rank < 300,
+         rank > 30)
 
 lm(log10(`term frequency`) ~ log10(rank), data = rank_subset)
 ```
@@ -114,7 +117,7 @@ and we have in fact gotten a slope close to -1 here. Let's plot this fitted powe
 ```{r zipffit, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="Fitting an exponent for Zipf's law with Jane Austen's novels"}
 freq_by_rank %>% 
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
-  geom_abline(intercept = -0.89, slope = -0.97, color = "gray50", linetype = 2) +
+  geom_abline(intercept = -0.94, slope = -0.94, color = "gray50", linetype = 2) +
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
   scale_x_log10() +
   scale_y_log10() +
@@ -158,7 +161,7 @@ chapter_words %>%
   arrange(desc(tf_idf)) %>%
   mutate(word = factor(word, levels = rev(unique(word)))) %>% 
   group_by(chapter) %>% 
-  top_n(8) %>% 
+  top_n(10) %>% 
   ungroup %>%
   ggplot(aes(word, tf_idf, fill = chapter)) +
   geom_col(show.legend = FALSE) +
@@ -169,112 +172,6 @@ chapter_words %>%
 ```
 
 Still all proper nouns in Figure \@ref(fig:plotseparate)! These words are, as measured by tf-idf, the most important to each novel and most readers would likely agree. What measuring tf-idf has done here is show us that Jane Austen used similar language across her six novels, and what distinguishes one novel from the rest within the collection of her works are the proper nouns, the names of people and places. This is the point of tf-idf; it identifies words that are important to one document within a collection of documents.
-
-## A corpus of physics texts
-
-Let's work with another corpus of documents, to see what terms are important in a different set of works. In fact, let's leave the world of fiction and narrative entirely. Let's download some classic physics texts from Project Gutenberg and see what terms are important in these works, as measured by tf-idf. Let's download [*Discourse on Floating Bodies* by Galileo Galilei](http://www.gutenberg.org/ebooks/37729), [*Treatise on Light* by Christiaan Huygens](http://www.gutenberg.org/ebooks/14725), [*Experiments with Alternate Currents of High Potential and High Frequency* by Nikola Tesla](http://www.gutenberg.org/ebooks/13476), and [*Relativity: The Special and General Theory* by Albert Einstein](http://www.gutenberg.org/ebooks/5001).
-
-This is a pretty diverse bunch. They may all be physics classics, but they were written across a 300-year timespan, and some of them were first written in other languages and then translated to English. Perfectly homogeneous these are not, but that doesn't stop this from being an interesting exercise!
-
-```{r eval = FALSE}
-library(gutenbergr)
-physics <- gutenberg_download(c(37729, 14725, 13476, 5001), 
-                              meta_fields = "author")
-```
-
-```{r physics, echo = FALSE}
-load("data/physics.rda")
-```
-
-Now that we have the texts, let's use `unnest_tokens()` and `count()` to find out how many times each word was used in each text.
-
-```{r physics_words, dependson = "physics"}
-physics_words <- physics %>%
-  unnest_tokens(word, text) %>%
-  count(author, word, sort = TRUE) %>%
-  ungroup()
-
-physics_words
-```
-
-Here we see just the raw counts; we need to remember that these documents are all different lengths. Let's go ahead and calculate tf-idf, then visualize the high tf-idf words in Figure \@ref(fig:physicsseparate).
-
-```{r physicsseparate, dependson = "plot_physics", fig.height=7, fig.width=8, fig.cap="Highest tf-idf words in each physics texts"}
-plot_physics <- physics_words %>%
-  bind_tf_idf(word, author, n) %>%
-  arrange(desc(tf_idf)) %>%
-  mutate(word = factor(word, levels = rev(unique(word)))) %>%
-  mutate(author = factor(author, levels = c("Galilei, Galileo",
-                                            "Huygens, Christiaan", 
-                                            "Tesla, Nikola",
-                                            "Einstein, Albert")))
-
-plot_physics %>% 
-  group_by(author) %>% 
-  top_n(15, tf_idf) %>% 
-  ungroup() %>%
-  mutate(word = reorder(word, tf_idf)) %>%
-  ggplot(aes(word, tf_idf, fill = author)) +
-  geom_col(show.legend = FALSE) +
-  labs(x = NULL, y = "tf-idf") +
-  facet_wrap(~author, ncol = 2, scales = "free") +
-  coord_flip()
-```
-
-Very interesting indeed. One thing we see here is "eq" in the Einstein text?!
-
-```{r dependson = "physics"}
-library(stringr)
-
-physics %>% 
-  filter(str_detect(text, "eq\\.")) %>% 
-  select(text)
-```
-
-Some cleaning up of the text may be in order. "K1" is the name of a coordinate system for Einstein:
-
-```{r dependson = "physics"}
-physics %>% 
-  filter(str_detect(text, "K1")) %>% 
-  select(text)
-```
-
-Maybe it makes sense to keep this one. Also notice that in this line we have "co-ordinate", which explains why there are separate "co" and "ordinate" items in the high tf-idf words for the Einstein text; the `unnest_tokens()` function separates around punctuation. Notice that the tf-idf scores for "co" and "ordinate" are close to same!
-
-"AB", "RC", and so forth are names of rays, circles, angles, and so forth for Huygens.
-
-```{r dependson = "physics"}
-physics %>% 
-  filter(str_detect(text, "AK")) %>% 
-  select(text)
-```
-
-Let's remove some of these less meaningful words to make a better, more meaningful plot. Notice that we make a custom list of stop words and use `anti_join()` to remove them; this is a flexible approach that can be used in many situations. We will need to go back a few steps since we are removing words from the tidy data frame.
-
-```{r mystopwords, dependson = "plot_physics", fig.height=7, fig.width=8, fig.cap="Highest tf-idf words in classic physics texts"}
-mystopwords <- data_frame(word = c("eq", "co", "rc", "ac", "ak", "bn", 
-                                   "fig", "file", "cg", "cb", "cm"))
-physics_words <- anti_join(physics_words, mystopwords, by = "word")
-plot_physics <- physics_words %>%
-  bind_tf_idf(word, author, n) %>%
-  arrange(desc(tf_idf)) %>%
-  mutate(word = factor(word, levels = rev(unique(word)))) %>%
-  group_by(author) %>% 
-  top_n(15, tf_idf) %>%
-  ungroup %>%
-  mutate(author = factor(author, levels = c("Galilei, Galileo",
-                                            "Huygens, Christiaan",
-                                            "Tesla, Nikola",
-                                            "Einstein, Albert")))
-
-ggplot(plot_physics, aes(word, tf_idf, fill = author)) +
-  geom_col(show.legend = FALSE) +
-  labs(x = NULL, y = "tf-idf") +
-  facet_wrap(~author, ncol = 2, scales = "free") +
-  coord_flip()
-```
-
-One thing we can conclude from Figure \@ref(fig:mystopwords) is that we don't hear enough about ramparts or things being ethereal in physics today.
 
 ## Summary 
 
