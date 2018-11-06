@@ -128,11 +128,11 @@ freq_by_rank %>%
 
 我们在《红楼梦》的语料中发现了和经典版本齐夫定律接近的结果。在高排名端的情况并不特别，很多语言都如此；语料中通常含有比单一幂定律的预测更少的不常见词。在低排名端的变化较不寻常。曹雪芹用得最多的词的占比低于很多其它语料。这种分析可以扩展到比较不同作家，或是比较不同的文本集合；用 tidy 数据原则很容易做到。
 
-## The `bind_tf_idf` function
+## `bind_tf_idf` 函数
 
-The idea of tf-idf is to find the important words for the content of each document by decreasing the weight for commonly used words and increasing the weight for words that are not used very much in a collection or corpus of documents, in this case, the group of Jane Austen's novels as a whole. Calculating tf-idf attempts to find the words that are important (i.e., common) in a text, but not *too* common. Let's do that now.
+tf-idf 的理念是通过在多个文档的集合（即语料）中降低常用词权重并提高不常用词权重以找到对于每个文档的内容更重要的词，在这个例子里，即包含所有部分的整部《红楼梦》。计算 tf-idf 尝试找到文本中重要（即普遍）但又不 *过于* 普遍。现在开始。
 
-The `bind_tf_idf` function in the tidytext package takes a tidy text dataset as input with one row per token (term), per document. One column (`word` here) contains the terms/tokens, one column contains the documents (`book` in this case), and the last necessary column contains the counts, how many times each document contains each term (`n` in this example). We calculated a `total` for each book for our explorations in previous sections, but it is not necessary for the `bind_tf_idf` function; the table only needs to contain all the words in each document.
+在 tidytext 包中的 `bind_tf_idf` 函数以一个 tidy 文本数据集作为输入，每文档每符号（术语）一行。一列（这里是`word`）含有术语/符号，一列含有文档（本例中为`chapter`），然后是必要的列，含有计数，每个文档含有每个术语多少次（本例中为`n`）。我们在前面为每个部分计算了 `total`，但 `bind_tf_idf` 函数并不需要；表只需含有每个文档中的所有词。
 
 ```{r tf_idf, dependson = "chapter_words"}
 chapter_words <- chapter_words %>%
@@ -140,9 +140,9 @@ chapter_words <- chapter_words %>%
 chapter_words
 ```
 
-Notice that idf and thus tf-idf are zero for these extremely common words. These are all words that appear in all six of Jane Austen's novels, so the idf term (which will then be the natural log of 1) is zero. The inverse document frequency (and thus tf-idf) is very low (near zero) for words that occur in many of the documents in a collection; this is how this approach decreases the weight for common words. The inverse document frequency will be a higher number for words that occur in fewer of the documents in the collection. 
+注意，这些极度常见的词的 idf 为0，因此 tf-idf 也是0。这些是在每一部分中都出现过的词，因此 idf （即1的自然对数）是0。在一个集合中的很多文档都出现的词，其逆向文档频率（以及 td-idf）就会非常低；这个方法就是这样降低常见词权重的。出现在集合中较少文档的词拥有较高的逆向文档频率。
 
-Let's look at terms with high tf-idf in Jane Austen's works.
+来看一下在《红楼梦》各部分中高 tf-idf 的术语。
 
 ```{r desc_idf, dependson = "tf_idf"}
 chapter_words %>%
@@ -150,21 +150,23 @@ chapter_words %>%
   arrange(desc(tf_idf))
 ```
 
-Here we see all proper nouns, names that are in fact important in these novels. None of them occur in all of novels, and they are important, characteristic words for each text within the corpus of Jane Austen's novels. 
+基本都是专有名词，人名（包括称谓）和地名在不同部分中相当重要。这里的词没有在所有部分都出现的，因此是对于《红楼梦》语料每个部分的文本具有代表性的词。
 
 ```{block, type = "rmdnote"}
 Some of the values for idf are the same for different terms because there are 6 documents in this corpus and we are seeing the numerical value for $\ln(6/1)$, $\ln(6/2)$, etc. 
 ```
 
-Let's look at a visualization for these high tf-idf words in Figure \@ref(fig:plotseparate).
+图 \@ref(fig:plotseparate) 是对这些高 tf-idf 词的可视化。
 
-```{r plotseparate, dependson = "plot_austen", fig.height=10, fig.width=9, fig.cap="Highest tf-idf words in each of Jane Austen's Novels"}
+```{r plotseparate, dependson = "plot_austen", fig.height=10, fig.width=9, fig.cap="《红楼梦》每个部分中 tf-idf 最高的词"}
 chapter_words %>%
+  select(-total) %>%
   arrange(desc(tf_idf)) %>%
   mutate(word = factor(word, levels = rev(unique(word)))) %>% 
   group_by(chapter) %>% 
   top_n(10) %>% 
   ungroup %>%
+  arrange(chapter) %>%
   ggplot(aes(word, tf_idf, fill = chapter)) +
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
@@ -173,9 +175,8 @@ chapter_words %>%
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-Still all proper nouns in Figure \@ref(fig:plotseparate)! These words are, as measured by tf-idf, the most important to each novel and most readers would likely agree. What measuring tf-idf has done here is show us that Jane Austen used similar language across her six novels, and what distinguishes one novel from the rest within the collection of her works are the proper nouns, the names of people and places. This is the point of tf-idf; it identifies words that are important to one document within a collection of documents.
+图 \@ref(fig:plotseparate) 中占据统治地位的依然是专有名词！由 tf-idf 度量找到的这些词对其所在的部分非常重要，多数读者当欣然同意。tf-idf 度量可以告诉我们《红楼梦》各部分语言相似，而区分不同部分的主要是专有名词，人名和地名，以及其它一些名词。这就是 tf-idf 的意义；识别出对多个文档的集合中的一个文档更重要的词。
 
-## Summary 
+## 小结 
 
-Using term frequency and inverse document frequency allows us to find words that are characteristic for one document within a collection of documents, whether that document is a novel or physics text or webpage. Exploring term frequency on its own can give us insight into how language is used in a collection of natural language, and dplyr verbs like `count()` and `rank()` give us tools to reason about term frequency. The tidytext package uses an implementation of tf-idf consistent with tidy data principles that enables us to see how different words are important in documents within a collection or corpus of documents.
-
+使用词频和逆向文档频率让我们能够找出多个文档的集合中的一个文档的特征词，无论文档是小说、科技文本还是网页。探索词频本身可以让我们洞见在自然语言的集合中语言是如何被使用的，而 dplyr 功能如 `count()` 和 `rank()` 给了我们得出词频的工具。tidytext 包使用了与 tidy 数据原则一致的 tf-idf 实现，让我们可以看到词在一组文档语料的每个文档中的重要性是多么不同。
