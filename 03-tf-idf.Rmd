@@ -1,4 +1,4 @@
-# Analyzing word and document frequency: tf-idf {#tfidf}
+# 对词与文档频率进行分析：tf-idf {#tfidf}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -8,19 +8,19 @@ library(ggplot2)
 theme_set(theme_light())
 ```
 
-A central question in text mining and natural language processing is how to quantify what a document is about. Can we do this by looking at the words that make up the document? One measure of how important a word may be is its *term frequency* (tf), how frequently a word occurs in a document, as we examined in Chapter \@ref(tidytext). There are words in a document, however, that occur many times but may not be important; in English, these are probably words like "the", "is", "of", and so forth. We might take the approach of adding words like these to a list of stop words and removing them before analysis, but it is possible that some of these words might be more important in some documents than others. A list of stop words is not a very sophisticated approach to adjusting term frequency for commonly used words.
+文本挖掘与自然语言处理的一个中心问题是如何量化一个文档的内容。我们可以通过观察组成文档的词做到这一点吗？一个词的重要性的测度可以是其 *词频*（term frequency，tf），一个词在一个文档中出现的频率，我们在章 \@ref(tidytext) 中已经检查过了。然而，一个文档中有些词出现了很多次但可能并不重要；在英语中，这些词很可能是诸如“the”“is”“of”之类。我们可以通过加入停止词列表的方法在分析前就把这些词去掉，但是这些词中的某些词可能在有的文档中比另一些更重要。用停止词列表调整常用词词频的方法还不够精巧。
 
-Another approach is to look at a term's *inverse document frequency* (idf), which decreases the weight for commonly used words and increases the weight for words that are not used very much in a collection of documents. This can be combined with term frequency to calculate a term's *tf-idf* (the two quantities multiplied together), the frequency of a term adjusted for how rarely it is used. 
+另一种方法是观察一个术语在一组文档中的 *逆向文档频率*（inverse document frequency，idf），可降低常用词的权重并提高不很常用的词的权重。可以将 idf 与 tf 合并来计算一个术语的 *tf-idf*（把这两个量相乘），从而用一个术语不常见的量度来调整其频率。
 
 ```{block, type = "rmdnote"}
 The statistic **tf-idf** is intended to measure how important a word is to a document in a collection (or corpus) of documents, for example, to one novel in a collection of novels or to one website in a collection of websites. 
 ```
 
-It is a rule-of-thumb or heuristic quantity; while it has proved useful in text mining, search engines, etc., its theoretical foundations are considered less than firm by information theory experts. The inverse document frequency for any given term is defined as
+这是条经验法则，是启发性质的量化；尽管可以验证 tf-idf 在文本挖掘、搜索引擎等应用中有效，信息理论专家认为其理论基础尚薄弱。任意给定的术语的逆向文档频率定义为：
 
 $$idf(\text{term}) = \ln{\left(\frac{n_{\text{documents}}}{n_{\text{documents containing term}}}\right)}$$
 
-We can use tidy data principles, as described in Chapter \@ref(tidytext), to approach tf-idf analysis and use consistent, effective tools to quantify how important various terms are in a document that is part of a collection.
+我们可以如同章 \@ref(tidytext) 中描述的那样使用 tidy 数据原则进行 tf-idf 分析，使用一致、有效的工具来量化不同术语对一组文档中的一个文档的重要程度。
 
 ## Term frequency in Jane Austen's novels
 
