@@ -88,7 +88,7 @@ text_df %>%
 
 有了这种格式的数据，我们可以使用标准的 tidy 工具套装进行操作、处理和可视化，即 dplyr、tidyr 和 ggplot2。如图 \@ref(fig:tidyflow-ch1) 所示。
 
-```{r tidyflow-ch1, echo = FALSE, out.width = '100%', fig.cap = "A flowchart of a typical text analysis using tidy data principles. This chapter shows how to summarize and visualize text using these tools."}
+```{r tidyflow-ch1, echo = FALSE, out.width = '100%', fig.cap = "使用 tidy 数据原则进行文本分析的典型流程图"}
 knitr::include_graphics("images/tidyflow-ch-1.png")
 ```
 
@@ -140,7 +140,7 @@ tidy_books %>%
 
 因为我们一直在使用 tidy 工具，词的个数存在一个 tidy 数据框里。这让我们可以把它直接通过管道传给 ggplot2 包，例如创建一个最常见的词的可视化（图 \@ref(fig:plotcount)）。
 
-```{r plotcount, dependson = "tidy_books", fig.width=6, fig.height=5, fig.cap="The most common words in Jane Austen's novels"}
+```{r plotcount, dependson = "tidy_books", fig.width=6, fig.height=5, fig.cap="简·奥斯汀的小说中最常见的词"}
 tidy_books %>%
   count(word, sort = TRUE) %>%
   filter(n > 600) %>%
@@ -200,7 +200,7 @@ tidy_hongloumeng %>%
 
 图 \@ref(fig:plotcount-zh) 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
 
-```{r plotcount-zh, dependson = "tidy_hongloumeng", fig.width=6, fig.height=5, fig.cap="《红楼梦》常见词"}
+```{r plotcount-zh, dependson = "tidy_hongloumeng", fig.width=6, fig.height=5, fig.cap="《红楼梦》中最常见的词"}
 library(showtext)
 showtext_auto(enable = TRUE)
 font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
@@ -259,7 +259,7 @@ tidy_zibuyu %>%
   count(word, sort = TRUE)
 ```
 
-看起来“人”在所有作品里都属于最常见的词。关注一下意思相当于“说”的词汇：《红楼梦》中，“道”和“说”都非常多（当然，有部分“道”是道士的道）；《三言》里就只有“道”排在前面；《子不语》两部中只有“曰”上榜。这可能是由于文体（文言多用曰）及时代（说这个用法较后起）的差异。
+看起来“人”在所有作品里都属于最常见的词。关注一下意思相当于“说”的词汇：《红楼梦》中，“道”和“說”都非常多（有部分“道”可能是道士的道，因此比例只会更接近1）；《三言》里就只有“道”排在前面，“說”只有其一半左右；《子不语》两部中只有“曰”上榜。这可能是由于文体（文言多用曰）及时代（说对道的替代需要一个过程）的差异。
 
 现在，计算一下每个词在每位作家的作品中出现的频率，把数据框绑定到一起。我们可以使用 tidyr 中的 `spread` 和 `gather` 重新定形数据框，只留下绘图需要的点，以便对三个作品集进行比较。
 
@@ -281,9 +281,9 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
 
 注释掉的行里 `str_extract()` 的用途是去掉下划线等，因为来自古登堡计划的UTF-8编码文本为了表示强调（斜体）在相应词的前后加了下划线，符号化的时候这些词不应该独立计数。在选用 `str_extract()` 之前做的初步数据探索中，“\_any\_”没有算成“any”。对于中文数据集，由于分词方法不同，这一步骤无需使用，相反需要考虑过滤掉英文和数字等，如其下一行代码所示。
 
-现在绘图（图 \@ref(fig:plotcompare)）。
+现在绘制图 \@ref(fig:plotcompare)。
 
-```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="比较曹雪芹、冯梦龙与袁枚作品的词频"}
+```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="冯梦龙、袁枚与曹雪芹的作品词频比较"}
 library(scales)
 
 # expect a warning about rows with missing values being removed
@@ -311,7 +311,7 @@ cor.test(data = frequency[frequency$author == "冯梦龙",], ~ proportion + `Cao
 cor.test(data = frequency[frequency$author == "袁枚",], ~ proportion + `Cao`)
 ```
 
-正如我们在图中所见，词频在曹雪芹和冯梦龙的小说中相关度要高于曹雪芹和袁枚。基本上，这个结论也符合主观的观感。
+与我们在图中所见一致，词频在曹雪芹和冯梦龙的小说中相关度要高于曹雪芹和袁枚。基本上，这个结论也符合主观的观感。
 
 ## 小结
 
