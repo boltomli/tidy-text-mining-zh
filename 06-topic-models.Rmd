@@ -26,7 +26,7 @@ theme_set(theme_zh)
 knitr::include_graphics("images/tidyflow-ch-6.png")
 ```
 
-如图 \@ref(fig:tidyflowchartch6) 所示，我们可以使用 tidy 文本原则得到主题模型，通过在全书中使用的同一套 tidy 工具。在本章中，我们将学习 [topicmodels 包](https://cran.r-project.org/package=topicmodels) [R-topicmodels] 中的 `LDA` 对象，特别是将这些模型 tidy 化，以便在 ggplot2 和 dplyr 中加以操作。我们还将探索一个多本书籍章节聚类的例子，从中可以看到主题模型能基于文本内容“学习”到不同的书有何不同。
+如图 \@ref(fig:tidyflowchartch6) 所示，我们可以使用 tidy 文本原则得到主题模型，通过在全书中使用的同一套 tidy 工具。在本章中，我们将学习 [topicmodels 包](https://cran.r-project.org/package=topicmodels) [@R-topicmodels] 中的 `LDA` 对象，特别是将这些模型 tidy 化，以便在 ggplot2 和 dplyr 中加以操作。我们还将探索一个多本书籍章节聚类的例子，从中可以看到主题模型能基于文本内容“学习”到不同的书有何不同。
 
 ## 隐含狄利克雷分布
 
@@ -149,18 +149,18 @@ tidy(AssociatedPress) %>%
 
 基于最常见的词，看起来这篇文章是关于美国政府与巴拿马当时的统治者 Noriega 的，这意味着算法正确地把它分在了主题2中（政治新闻）。
 
-## Example: the great library heist {#library-heist}
+## 例：图书馆大捣乱 {#library-heist}
 
 When examining a statistical method, it can be useful to try it on a very simple case where you know the "right answer". For example, we could collect a set of documents that definitely relate to four separate topics, then perform topic modeling to see whether the algorithm can correctly distinguish the four groups. This lets us double-check that the method is useful, and gain a sense of how and when it can go wrong. We'll try this with some data from classic literature.
 
-Suppose a vandal has broken into your study and torn apart four of your books:
+假设有个强盗闯入你的书斋，把四大名著撕破了：
 
-* *Great Expectations* by Charles Dickens
-* *The War of the Worlds* by H.G. Wells
-* *Twenty Thousand Leagues Under the Sea* by Jules Verne
-* *Pride and Prejudice* by Jane Austen
+* 《水滸傳》（施耐庵）
+* 《三國志演義》（罗贯中）
+* 《西遊記》（吴承恩）
+* 《紅樓夢》（曹雪芹）
 
-This vandal has torn the books into individual chapters, and left them in one large pile. How can we restore these disorganized chapters to their original books? This is a challenging problem since the individual chapters are **unlabeled**: we don't know what words might distinguish them into groups. We'll thus use topic modeling to discover how chapters cluster into distinct topics, each of them (presumably) representing one of the books.
+这个强盗把书沿章回的边缘撕开堆成了一堆。我们怎么才能把这些杂乱的章节按原书整理好呢？This is a challenging problem since the individual chapters are **unlabeled**: we don't know what words might distinguish them into groups. We'll thus use topic modeling to discover how chapters cluster into distinct topics, each of them (presumably) representing one of the books.
 
 We'll retrieve the text of these four books using the gutenbergr package introduced in Chapter \@ref(tfidf).
 
@@ -182,7 +182,7 @@ books <- gutenberg_works(title %in% titles, languages = 'zh') %>%
 load("data/books.rda")
 ```
 
-As pre-processing, we divide these into chapters, use tidytext's `unnest_tokens()` to separate them into words, then remove `stop_words`. We're treating every chapter as a separate "document", each with a name like `Great Expectations_1` or `Pride and Prejudice_11`. (In other applications, each document might be one newspaper article, or one blog post).
+作为预处理，我们把每部小说都按回分开，再用 tidytext 的 `unnest_tokens()` 分成每词一行。我们把每回当作独立的“文档”，命名为类似 `紅樓夢_1` 或 `水滸傳_11` 这样。在其它应用中，每个文档可以说一篇报纸上的文章，或者博客上的一篇博文。
 
 ```{r word_counts, dependson = "topic_books"}
 library(stringr)
@@ -190,24 +190,21 @@ library(stringr)
 # 移除停止词应该较好，也可尝试不移除
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 books$text <- sapply(segment(books$text, cutter), function(x){paste(x, collapse = " ")})
-# divide into documents, each representing one chapter
+# 分成文档，每个文档为一回（章）
 by_chapter <- books %>%
   group_by(title) %>%
   mutate(chapter = cumsum(str_detect(text, "^第[零一二三四五六七八九十百 ]+回"))) %>%
   ungroup() %>%
   filter(chapter > 0) %>%
   unite(document, title, chapter)
-
-# split into words
+# 按词切分
 by_chapter_word <- by_chapter %>%
   unnest_tokens(word, text)
-
-# find document-word counts
+# 获得文档-词计数
 word_counts <- by_chapter_word %>%
   anti_join(stop_words) %>%
   count(document, word, sort = TRUE) %>%
   ungroup()
-
 word_counts
 ```
 
