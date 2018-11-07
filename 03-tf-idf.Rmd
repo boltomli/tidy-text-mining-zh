@@ -4,8 +4,14 @@
 library(knitr)
 opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
 options(width = 100, dplyr.width = 100)
+library(jiebaR)
 library(ggplot2)
-theme_set(theme_light())
+library(showtext)
+showtext_auto(enable = TRUE)
+font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
+theme_zh <- theme_light() +
+  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+theme_set(theme_zh)
 ```
 
 文本挖掘与自然语言处理的一个中心问题是如何量化一个文档的内容。我们可以通过观察组成文档的词做到这一点吗？一个词的重要性的测度可以是其 *词频*（term frequency，tf），一个词在一个文档中出现的频率，我们在章 \@ref(tidytext) 中已经检查过了。然而，一个文档中有些词出现了很多次但可能并不重要；在英语中，这些词很可能是诸如“the”“is”“of”之类。我们可以通过加入停止词列表的方法在分析前就把这些词去掉，但是这些词中的某些词可能在有的文档中比另一些更重要。用停止词列表调整常用词词频的方法还不够精巧。
@@ -26,15 +32,15 @@ $$idf(\text{术语}) = \ln{\left(\frac{n_{\text{文档的数量}}}{n_{\text{含�
 
 ## 《红楼梦》中的词频（tf）
 
-从查看词频开始，然后才是 tf-idf。我们首先使用 dplyr 的功能，如 `group_by()` 和 `join()`。《红楼梦》中最常用的词有哪些？（为了后面计算 tf-idf，我们需要一组文档，因此把《红楼梦》按每二十章共分为六个部分。）
+从查看词频开始，然后才是 tf-idf。我们首先使用 dplyr 的功能，如 `group_by()` 和 `join()`。《红楼梦》中最常用的词有哪些？（为了后面计算 tf-idf，我们需要多个文档，因此把《红楼梦》按每二十章一部分共分为六个文档。）
 
 ```{r chapter_words}
-library(jiebaR)
 library(dplyr)
 library(stringr)
 library(tidytext)
 
 load("data/hongloumeng.rda")
+# 无需移除停止词
 cutter <- worker(bylines = TRUE)
 hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
 chapter_words <- hongloumeng %>%
@@ -49,24 +55,17 @@ chapter_words <- hongloumeng %>%
 total_words <- chapter_words %>%
   group_by(chapter) %>%
   summarize(total = sum(n))
-
 chapter_words <- left_join(chapter_words, total_words)
-
 chapter_words
 ```
 
 此 `chapter_words` 数据框中每个词-部分之组合一行；`n` 是该词在该部分中出现的次数，`total` 是该部分全部词的数量。有最高 `n` 值的通常怀疑对象显然包括了“了”和“的”等。在图 \@ref(fig:plottf)中，可以看到每部分中 `n/total` 的分布，一个词在一部分中出现的次数除以该部分所有术语（即词）的总量。这就是词频的含义。
 
 ```{r plottf, dependson = "chapter_words", fig.height=9, fig.width=9, fig.cap="《红楼梦》各部分的词频分布"}
-library(showtext)
-showtext_auto(enable = TRUE)
-font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
-
 ggplot(chapter_words, aes(n/total, fill = chapter)) +
   geom_histogram(show.legend = FALSE) +
   xlim(NA, 0.0009) +
-  facet_wrap(~chapter, ncol = 2, scales = "free_y") +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  facet_wrap(~chapter, ncol = 2, scales = "free_y")
 ```
 
 每个部分的右侧都有很长的长尾（那些十分常见的词！），在图中并未显示。这些图显示了所有部分都有相似的分布，即很多词出现得不多而较少词出现很频繁。
@@ -86,7 +85,6 @@ freq_by_rank <- chapter_words %>%
   group_by(chapter) %>%
   mutate(rank = row_number(), 
          `term frequency` = n/total)
-
 freq_by_rank
 ```
 
@@ -97,8 +95,7 @@ freq_by_rank %>%
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
   scale_x_log10() +
-  scale_y_log10() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  scale_y_log10()
 ```
 
 注意，图 \@ref(fig:zipf) 中的坐标轴为对数-对数关系。可以看出，《红楼梦》的六个部分都很相似，排名与频率间的关系呈现负斜率，然而并不十分恒定。也许我们可以把这条线分成比方说三段，呈现为[幂定律](https://en.wikipedia.org/wiki/Power_law)。来看一下排名区间位于中段的幂指数如何。
@@ -107,7 +104,6 @@ freq_by_rank %>%
 rank_subset <- freq_by_rank %>%
   filter(rank < 500,
          rank > 10)
-
 lm(log10(`term frequency`) ~ log10(rank), data = rank_subset)
 ```
 
@@ -122,8 +118,7 @@ freq_by_rank %>%
   geom_abline(intercept = -0.90, slope = -0.96, color = "gray50", linetype = 2) +
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
   scale_x_log10() +
-  scale_y_log10() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  scale_y_log10()
 ```
 
 我们在《红楼梦》的语料中发现了和经典版本齐夫定律接近的结果。在高排名端的情况并不特别，很多语言都如此；语料中通常含有比单一幂定律的预测更少的不常见词。在低排名端的变化较不寻常。曹雪芹用得最多的词的占比低于很多其它语料。这种分析可以扩展到比较不同作家，或是比较不同的文本集合；用 tidy 数据原则很容易做到。
@@ -158,7 +153,7 @@ Some of the values for idf are the same for different terms because there are 6 
 
 图 \@ref(fig:plotseparate) 是对这些高 tf-idf 词的可视化。
 
-```{r plotseparate, dependson = "plot_austen", fig.height=10, fig.width=9, fig.cap="《红楼梦》每个部分中 tf-idf 最高的词"}
+```{r plotseparate, dependson = "tf_idf", fig.height=10, fig.width=9, fig.cap="《红楼梦》每个部分中 tf-idf 最高的词"}
 chapter_words %>%
   select(-total) %>%
   arrange(desc(tf_idf)) %>%
@@ -170,8 +165,7 @@ chapter_words %>%
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
   facet_wrap(~chapter, ncol = 2, scales = "free") +
-  coord_flip() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  coord_flip()
 ```
 
 图 \@ref(fig:plotseparate) 中占据统治地位的依然是专有名词！由 tf-idf 度量找到的这些词对其所在的部分非常重要，多数读者当欣然同意。tf-idf 度量可以告诉我们《红楼梦》各部分语言相似，而区分不同部分的主要是专有名词，人名和地名，以及其它一些名词。这就是 tf-idf 的意义；识别出对多个文档的集合中的一个文档更重要的词。
@@ -195,6 +189,7 @@ load("data/stem.rda")
 有了文本，我们使用 `unnest_tokens()` 和 `count()` 来找出每个词在每个文本中使用的次数。
 
 ```{r stem_words, dependson = "stem"}
+# 无需移除停止词
 cutter <- worker(bylines = TRUE)
 stem$text <- sapply(segment(stem$text, cutter), function(x){paste(x, collapse = " ")})
 stem_words <- stem %>%
@@ -224,11 +219,10 @@ plot_stem %>%
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
   facet_wrap(~author, ncol = 2, scales = "free") +
-  coord_flip() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  coord_flip()
 ```
 
-这个结果已经足够有趣。但有些词是数字，具体数字在这里也许不是重点，我们可以尝试移除掉。
+这个结果已经足够有趣。但具体数字在这里也许不是重点，我们可以尝试用 `anti_join()` 移除掉纯数字词。
 
 ```{r stemclean, dependson = "stem_words", fig.height=7, fig.width=8, fig.cap="每个科技文本中 tf-idf 最高的词"}
 library(stringr)
@@ -254,8 +248,7 @@ plot_stem %>%
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
   facet_wrap(~author, ncol = 2, scales = "free") +
-  coord_flip() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  coord_flip()
 ```
 
 从图 \@ref(fig:stemclean) 中可以得出一些结论。如沈括主要描绘了个人所做观察，而《天工開物》包括了工匠操作的具体步骤；算术方面，劉徽似乎更关注楼台高度、水土面积的计算等，而《孫子算經》则有更多度量粮食的问题。

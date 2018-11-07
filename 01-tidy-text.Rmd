@@ -46,6 +46,7 @@ text
 
 ```{r text_wb, dependson = "text"}
 library(jiebaR)
+# 保留标点符号
 cutter <- worker(bylines = TRUE, symbol = TRUE)
 text_wb <- sapply(segment(text, cutter), function(x){
   paste(x, collapse = " ")})
@@ -184,6 +185,7 @@ load("data/hongloumeng.rda")
 移除过于常见的停止词并分词。注意和第一个例子的区别，这次我们没有保留标点符号（即使保留了也会在下一步被移除）。另外，由于中英文的不同以及包的具体实现有差别，我们直接在分词的阶段就把停止词移除了。
 
 ```{r tidy_hongloumeng, dependson = "hongloumeng"}
+# 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_hongloumeng <- hongloumeng %>%
@@ -236,6 +238,7 @@ load("data/sanyan.rda")
 ```
 
 ```{r tidy_sanyan, dependson = "sanyan"}
+# 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 sanyan$text <- sapply(segment(sanyan$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_sanyan <- sanyan %>%
@@ -251,6 +254,7 @@ load("data/zibuyu.rda")
 ```
 
 ```{r tidy_zibuyu, dependson = "zibuyu"}
+# 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 zibuyu$text <- sapply(segment(zibuyu$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_zibuyu <- zibuyu %>%
@@ -300,7 +304,7 @@ ggplot(frequency, aes(x = proportion, y = `Cao`, color = abs(`Cao` - proportion)
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在曹雪芹和冯梦龙的文本中，而“不”“見”“上”同时高频出现在曹雪芹和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在曹雪芹-冯梦龙一侧的图中，诸如“寳玉”“太太”“賈”这些词（全是人名和称谓）在曹雪芹文本中多见，而在冯梦龙文本中就不多，同时“員外”“郎”在冯梦龙文本中更多见而非曹雪芹文本。比较袁枚与曹雪芹，袁枚用词“某”“曰”较多而曹雪芹不用，曹雪芹用词“這”“呢”较多而袁枚不用。
+靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在曹雪芹和冯梦龙的文本中，而“不”“見”“上”同时高频出现在曹雪芹和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在曹雪芹-冯梦龙一侧的图中，诸如“寳玉”“太太”“賈”这些词（全是人名和称谓）在曹雪芹文本中多见，而在冯梦龙文本中就不多，同时“員外”“郎”在冯梦龙文本中更多见而非曹雪芹文本。比较袁枚与曹雪芹，袁枚用词“某”较多而曹雪芹不用，曹雪芹用词“呢”较多而袁枚不用。
 
 整体来看，注意到在图 \@ref(fig:plotcompare) 中曹雪芹-冯梦龙侧比曹雪芹-袁枚侧更接近过零点的斜线。同时注意曹雪芹-冯梦龙侧的词向更低频扩展更多；曹雪芹-袁枚侧在低频词处有片空白区域。这些特征说明曹雪芹与冯梦龙用词比曹雪芹与袁枚用词更为接近。还可以看到并非所有词在全部三个文本集中都能找到，曹雪芹-袁枚侧的数据点偏少。
 
