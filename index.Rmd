@@ -23,9 +23,9 @@ options(
   htmltools.dir.version = FALSE, formatR.indent = 2, width = 55, digits = 4
 )
 
-lapply(c("jiebaR", "dplyr", "tidytext", "stringr", "tidyr", "janeaustenr", "showtext", "ggplot2", "gutenbergr", "quanteda"), function(pkg) {
-  if (system.file(package = pkg) == '') install.packages(pkg)
-})
+lapply(c("dplyr", "tidytext", "stringr", "tidyr", "ggplot2", "gutenbergr",
+         "janeaustenr", "jiebaR", "showtext", "quanteda", "methods", "scales", "mallet"),
+       function(pkg) {if (system.file(package = pkg) == '') install.packages(pkg)})
 ```
 
 # Welcome to Text Mining with R {-}
