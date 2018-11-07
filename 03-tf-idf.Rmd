@@ -46,8 +46,8 @@ chapter_words <- hongloumeng %>%
   unnest_tokens(word, text) %>%
   count(chapter, word, sort = TRUE) %>%
   ungroup()
-total_words <- chapter_words %>% 
-  group_by(chapter) %>% 
+total_words <- chapter_words %>%
+  group_by(chapter) %>%
   summarize(total = sum(n))
 
 chapter_words <- left_join(chapter_words, total_words)
@@ -82,8 +82,8 @@ Zipf's law states that the frequency that a word appears is inversely proportion
 有了用来绘制词频的数据框，只要几行 dplyr 函数即可在《红楼梦》的各部分上检验齐夫定律。
 
 ```{r freq_by_rank, dependson = chapter_words}
-freq_by_rank <- chapter_words %>% 
-  group_by(chapter) %>% 
+freq_by_rank <- chapter_words %>%
+  group_by(chapter) %>%
   mutate(rank = row_number(), 
          `term frequency` = n/total)
 
@@ -93,7 +93,7 @@ freq_by_rank
 这里的 `rank` 列显示了频率表内每个词的排名；由于表已经按 `n` 排序，我们可以用 `row_number()` 来确定排名。之后，我们可以按与之前一样的方式计算词频。要可视化齐夫定律，通常以排名为横坐标，词频为纵坐标，均使用对数比例。这种方式得到的逆向比例关系图像有稳定的负斜率。
 
 ```{r zipf, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="《红楼梦》中的齐夫定律"}
-freq_by_rank %>% 
+freq_by_rank %>%
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
   scale_x_log10() +
@@ -104,7 +104,7 @@ freq_by_rank %>%
 注意，图 \@ref(fig:zipf) 中的坐标轴为对数-对数关系。可以看出，《红楼梦》的六个部分都很相似，排名与频率间的关系呈现负斜率，然而并不十分恒定。也许我们可以把这条线分成比方说三段，呈现为[幂定律](https://en.wikipedia.org/wiki/Power_law)。来看一下排名区间位于中段的幂指数如何。
 
 ```{r lower_rank, dependson = "freq_by_rank"}
-rank_subset <- freq_by_rank %>% 
+rank_subset <- freq_by_rank %>%
   filter(rank < 500,
          rank > 10)
 
@@ -117,7 +117,7 @@ $$\text{频率} \propto \frac{1}{\text{排名}}$$
 而我们实际上已经得到了接近 -1 的斜率。把拟合的幂定律绘制到图 \@ref(fig:zipffit) 里看看是什么样。
 
 ```{r zipffit, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="带有拟合指数的《红楼梦》中的齐夫定律"}
-freq_by_rank %>% 
+freq_by_rank %>%
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
   geom_abline(intercept = -0.90, slope = -0.96, color = "gray50", linetype = 2) +
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
@@ -162,11 +162,10 @@ Some of the values for idf are the same for different terms because there are 6 
 chapter_words %>%
   select(-total) %>%
   arrange(desc(tf_idf)) %>%
-  mutate(word = factor(word, levels = rev(unique(word)))) %>% 
-  group_by(chapter) %>% 
-  top_n(10) %>% 
+  mutate(word = factor(word, levels = rev(unique(word)))) %>%
+  group_by(chapter) %>%
+  top_n(10) %>%
   ungroup %>%
-  arrange(chapter) %>%
   ggplot(aes(word, tf_idf, fill = chapter)) +
   geom_col(show.legend = FALSE) +
   labs(x = NULL, y = "tf-idf") +
@@ -176,6 +175,90 @@ chapter_words %>%
 ```
 
 图 \@ref(fig:plotseparate) 中占据统治地位的依然是专有名词！由 tf-idf 度量找到的这些词对其所在的部分非常重要，多数读者当欣然同意。tf-idf 度量可以告诉我们《红楼梦》各部分语言相似，而区分不同部分的主要是专有名词，人名和地名，以及其它一些名词。这就是 tf-idf 的意义；识别出对多个文档的集合中的一个文档更重要的词。
+
+## 科技文本语料
+
+下面对另一种文档组成的语料进行分析，看看在不同集合的作品中什么术语重要。实际上，我们将彻底离开小说和记叙文体的世界。从古登堡计划下载一些古代经典的技术文本，用 tf-idf 衡量一下这些作品里什么术语重要。下载[劉徽《海島算經》](https://www.gutenberg.org/ebooks/26979)、[孫子《孫子算經》](https://www.gutenberg.org/ebooks/24038)、[沈括《夢溪筆談》](https://www.gutenberg.org/ebooks/27292)和[宋應星《天工開物》](https://www.gutenberg.org/ebooks/25273)。
+
+这组文本相当发散。尽管都是经典的技术性文本，但前后超越千年，时间跨度大，而且从数学到工程，同质性应该很低。但这不能阻挡我们进行下面的有趣实验！
+
+```{r eval = FALSE}
+library(gutenbergr)
+stem <- gutenberg_download(c(26979, 24038, 27292, 25273), 
+                              meta_fields = "author")
+```
+
+```{r stem, echo = FALSE}
+load("data/stem.rda")
+```
+
+有了文本，我们使用 `unnest_tokens()` 和 `count()` 来找出每个词在每个文本中使用的次数。
+
+```{r stem_words, dependson = "stem"}
+cutter <- worker(bylines = TRUE)
+stem$text <- sapply(segment(stem$text, cutter), function(x){paste(x, collapse = " ")})
+stem_words <- stem %>%
+  unnest_tokens(word, text) %>%
+  count(author, word, sort = TRUE) %>%
+  ungroup()
+stem_words
+```
+
+目前我们看到的只是原始计数；要记得这些文档长度不同。我们继续计算 tf-idf，然后在图 \@ref(fig:stemseparate) 中可视化 tf-idf 值高的词。
+
+```{r stemseparate, dependson = "stem_words", fig.height=7, fig.width=8, fig.cap="每个科技文本中 tf-idf 最高的词"}
+plot_stem <- stem_words %>%
+  bind_tf_idf(word, author, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>%
+  mutate(author = factor(author, levels = c("Liu, Hui, 3rd/4th cent.",
+                                            "Sunzi, ca. 5th cent.", 
+                                            "Shen, Kuo",
+                                            "Song, Yingxing")))
+plot_stem %>%
+  group_by(author) %>%
+  top_n(15, tf_idf) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, tf_idf)) %>%
+  ggplot(aes(word, tf_idf, fill = author)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~author, ncol = 2, scales = "free") +
+  coord_flip() +
+  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+```
+
+这个结果已经足够有趣。但有些词是数字，具体数字在这里也许不是重点，我们可以尝试移除掉。
+
+```{r stemclean, dependson = "stem_words", fig.height=7, fig.width=8, fig.cap="每个科技文本中 tf-idf 最高的词"}
+library(stringr)
+mystopwords <- stem_words %>%
+  filter(str_detect(word, "^[A-Za-z0-9零一二三四五六七八九十百千萬]+$")) %>%
+  select(word) %>%
+  as.data.frame()
+stem_words <- anti_join(stem_words, mystopwords, by = "word")
+plot_stem <- stem_words %>%
+  bind_tf_idf(word, author, n) %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>%
+  mutate(author = factor(author, levels = c("Liu, Hui, 3rd/4th cent.",
+                                            "Sunzi, ca. 5th cent.", 
+                                            "Shen, Kuo",
+                                            "Song, Yingxing")))
+plot_stem %>%
+  group_by(author) %>%
+  top_n(15, tf_idf) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, tf_idf)) %>%
+  ggplot(aes(word, tf_idf, fill = author)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~author, ncol = 2, scales = "free") +
+  coord_flip() +
+  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+```
+
+从图 \@ref(fig:stemclean) 中可以得出一些结论。如沈括主要描绘了个人所做观察，而《天工開物》包括了工匠操作的具体步骤；算术方面，劉徽似乎更关注楼台高度、水土面积的计算等，而《孫子算經》则有更多度量粮食的问题。
 
 ## 小结 
 
