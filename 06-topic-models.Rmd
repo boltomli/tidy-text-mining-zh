@@ -2,10 +2,11 @@
 
 ```{r echo = FALSE}
 library(knitr)
-opts_chunk$set(message = FALSE, warning = FALSE, cache = FALSE)
+opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
 options(width = 100, dplyr.width = 150)
 library(tidytext)
 library(tidyr)
+library(dplyr)
 library(jiebaR)
 library(ggplot2)
 library(methods)
@@ -22,7 +23,7 @@ theme_set(theme_zh)
 
 隐含狄利克雷分布（Latent Dirichlet allocation，LDA）是一种特别流行的拟合主题模型的方法。它将每个文档视为多个主题的混合，而每个主题又是多个词的混合。LDA 允许文档在内容层面互有重合，而不是被分成离散的多个组，这在某种意义上体现了自然语言的典型用法。
 
-```{r tidyflowchartch6, echo = FALSE, out.width = '100%', fig.cap = "A flowchart of a text analysis that incorporates topic modeling. The topicmodels package takes a Document-Term Matrix as input and produces a model that can be tided by tidytext, such that it can be manipulated and visualized with dplyr and ggplot2."}
+```{r tidyflowchartch6, echo = FALSE, out.width = '100%', fig.cap = "应用主题模型进行文本分析的流程图。"}
 knitr::include_graphics("images/tidyflow-ch-6.png")
 ```
 
@@ -77,9 +78,7 @@ ap_topics
 
 我们可以使用 dplyr 的 `top_n()` 列出每个主题最常见的10个术语。作为一个 tidy 数据框，这很容易由 ggplot2 可视化（图 \@ref(fig:aptoptermsplot)）。
 
-```{r aptoptermsplot, dependson = "ap_topics", fig.height=5, fig.width=7, fig.cap = "The terms that are most common within each topic"}
-library(dplyr)
-
+```{r aptoptermsplot, dependson = "ap_topics", fig.height=5, fig.width=7, fig.cap = "每个主题中这些术语最常见"}
 ap_top_terms <- ap_topics %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
@@ -108,7 +107,7 @@ beta_spread
 
 在两个主题中距离最大的词见图 \@ref(fig:topiccompare)。
 
-(ref:topiccap) Words with the greatest difference in $\beta$ between topic 2 and topic 1
+(ref:topiccap) 主题2与主题1 $\beta$ 差值最大的词
 
 ```{r topiccompare, dependson = "beta_spread", fig.cap = "(ref:topiccap)", echo = FALSE}
 beta_spread %>%
@@ -118,7 +117,7 @@ beta_spread %>%
   mutate(term = reorder(term, log_ratio)) %>%
   ggplot(aes(term, log_ratio)) +
   geom_col() +
-  labs(y = "Log2 ratio of beta in topic 2 / topic 1") +
+  labs(y = "主题2和主题1 beta 值以2为底的对数比例") +
   coord_flip()
 ```
 
@@ -162,9 +161,7 @@ tidy(AssociatedPress) %>%
 
 ```{r titles}
 titles <- c("水滸傳", "三國志演義",
-            "西遊記", "紅樓夢")#,
-            #"水滸後傳", "三國志",
-            #"後西游記", "補紅樓夢")
+            "西遊記", "紅樓夢")
 ```
 
 ```{r eval = FALSE}
@@ -243,7 +240,7 @@ top_terms
 
 这个 tidy 输出可直接进行 ggplot2 可视化（图 \@ref(fig:toptermsplot)）。
 
-```{r toptermsplot, fig.height=6, fig.width=7, fig.cap = "The terms that are most common within each topic"}
+```{r toptermsplot, fig.height=6, fig.width=7, fig.cap = "每个主题中最常见的术语"}
 top_terms %>%
   mutate(term = reorder(term, beta)) %>%
   ggplot(aes(term, beta, fill = factor(topic))) +
@@ -252,7 +249,7 @@ top_terms %>%
   coord_flip()
 ```
 
-这些主题很清晰地与四本书联系了起来！“賈”无疑属于《紅樓夢》，“行者”应该属于《西遊記》，“兵”“將”属于《三國志演義》，而《水滸傳》。我们还可注意到，既然 LDA 属于“模糊聚类”方法，有些词为多个主题共有，如“道”属于主题1、3、4，“人”属于主题1、2、3。如果调整停止词以避免术语被过多主题共有，此结果当会有所不同。
+这些主题很清晰地与四本书联系了起来！“賈”无疑属于《紅樓夢》，“行者”应该属于《西遊記》，“兵”“將”属于《三國志演義》，而《水滸傳》没有很明显的代表词。我们还可注意到，既然 LDA 属于“模糊聚类”方法，有些词为多个主题共有，如“道”和“人”各属三个不同主题。调整停止词列表，此结果当有所不同。
 
 ### 按文档分类 {#per-document}
 
@@ -275,7 +272,9 @@ chapters_gamma <- chapters_gamma %>%
 chapters_gamma
 ```
 
-```{r chaptersldagamma, fig.width=8, fig.height=8, fig.cap = "The gamma probabilities for each chapter within each book"}
+(ref:chaptersldagammacap) 每本书中每章的 $\gamma$ 概率
+
+```{r chaptersldagamma, fig.width=8, fig.height=8, fig.cap = "(ref:chaptersldagammacap)"}
 # reorder titles in order of topic 1, topic 2, etc before plotting
 chapters_gamma %>%
   mutate(title = reorder(title, gamma * topic)) %>%
@@ -310,18 +309,18 @@ chapter_classifications %>%
 
 可以看到没有输出，说明本次无监督聚类没有误识别！
 
-### By word assignments: `augment`
+### 词的分配：`augment`
 
-One step of the LDA algorithm is assigning each word in each document to a topic. The more words in a document are assigned to that topic, generally, the more weight (`gamma`) will go on that document-topic classification.
+LDA 算法的一步是将每个文档里的每个词分配给一个主题。一个文档里越多词被分配给该主题，一般来说在文档-主题分类中的权重（`gamma`）就越高。
 
-We may want to take the original document-word pairs and find which words in each document were assigned to which topic. This is the job of the `augment()` function, which also originated in the broom package as a way of tidying model output. While `tidy()` retrieves the statistical components of the model, `augment()` uses a model to add information to each observation in the original data.
+我们可能想要取出原始的文档-词对，找出每个文档里的哪些词分配到了哪个主题。这是 `augment()` 函数的功能，也来自 broom 包，也是 tidy 化模型输出的一部分。`tidy()` 获取模型的统计组件，`augment()` 使用模型在原始数据的每个观察上添加信息。
 
 ```{r assignments, dependson = "chapters_lda"}
 assignments <- augment(chapters_lda, data = chapters_dtm)
 assignments
 ```
 
-This returns a tidy data frame of book-term counts, but adds an extra column: `.topic`, with the topic each term was assigned to within each document. (Extra columns added by `augment` always start with `.`, to prevent overwriting existing columns). We can combine this `assignments` table with the consensus book titles to find which words were incorrectly classified.
+这返回书-术语计数的 tidy 数据框，但额外加了一列：`.topic`，每个文档中每个术语所分配的主题。（`augment` 添加的额外列总以 `.` 开头，以避免覆盖已有的列）。我们可以把共识书名与此 `assignments` 表格结合，找出未正确分类的词。
 
 ```{r assignments2, dependson = c("assignments", "book_topics")}
 assignments <- assignments %>%
@@ -330,9 +329,9 @@ assignments <- assignments %>%
 assignments
 ```
 
-This combination of the true book (`title`) and the book assigned to it (`consensus`) is useful for further exploration. We can, for example, visualize a **confusion matrix**, showing how often words from one book were assigned to another, using dplyr's `count()` and ggplot2's `geom_tile` (Figure \@ref(fig:confusionmatrix).
+这个真实书名（`title`）和被分配的书名（`consensus`）的组合对进一步探索很有用。例如我们可以绘制 **混淆矩阵**，显示一本书里的词有多经常被分配给另一本，使用 dplyr 的 `count()` 和 ggplot2 的 `geom_tile`（图 \@ref(fig:confusionmatrix)。
 
-```{r confusionmatrix, dependson = "assignments2", fig.width = 10, fig.height = 8, fig.cap = "Confusion matrix showing where LDA assigned the words from each book. Each row of this table represents the true book each word came from, and each column represents what book it was assigned to."}
+```{r confusionmatrix, dependson = "assignments2", fig.width = 10, fig.height = 8, fig.cap = "展示 LDA 对每本书中的词进行分配的混淆矩阵。表格的每行代表词来自原书，每列代表被分配的书。"}
 assignments %>%
   count(title, consensus, wt = count) %>%
   group_by(title) %>%
@@ -341,40 +340,30 @@ assignments %>%
   geom_tile() +
   scale_fill_gradient2(high = "red", label = percent_format()) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, family = "WenQuanYi Micro Hei"),
-        panel.grid = element_blank()) +
-  labs(x = "Book words were assigned to",
-       y = "Book words came from",
-       fill = "% of assignments")
+  labs(x = "词被分配到的书",
+       y = "词来自的书",
+       fill = "正确分配的百分比") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+        panel.grid = element_blank(),
+        text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-We notice that almost all the words for *Pride and Prejudice*, *Twenty Thousand Leagues Under the Sea*, and *War of the Worlds* were correctly assigned, while *Great Expectations* had a fair number of misassigned words (which, as we saw above, led to two chapters getting misclassified).
-
-What were the most commonly mistaken words?
+注意到几乎所有词都正确分配了。最常出错的词有哪些？
 
 ```{r wrong_words, dependson = "assignments2"}
 wrong_words <- assignments %>%
   filter(title != consensus)
-
 wrong_words
-
 wrong_words %>%
   count(title, consensus, term, wt = count) %>%
   ungroup() %>%
   arrange(desc(n))
 ```
 
-We can see that a number of words were often assigned to the Pride and Prejudice or War of the Worlds cluster even when they appeared in Great Expectations. For some of these words, such as "love" and "lady", that's because they're more common in Pride and Prejudice (we could confirm that by examining the counts).
+我们可以看到，有不少分配给《三國志演義》的词实际上来自《西遊記》《水滸傳》或《紅樓夢》。比如“關 ”，《三國志演義》的主人公之一關羽的姓，同时也是《水滸傳》中比较活跃（可以通过查看词频确认）的關胜的姓，据书中所言，關羽乃關胜先祖。
 
-On the other hand, there are a few wrongly classified words that never appeared in the novel they were misassigned to. For example, we can confirm "flopson" appears only in *Great Expectations*, even though it's assigned to the "Pride and Prejudice" cluster.
+另外，有可能有的词在一本书中从未出现过但仍然被分配给该书。LDA 算法有一定随意性，有可能用一个主题覆盖到多本书。
 
-```{r dependson = "word_counts"}
-word_counts %>%
-  filter(word == "flopson")
-```
+## 小结
 
-The LDA algorithm is stochastic, and it can accidentally land on a topic that spans multiple books.
-
-## Summary
-
-This chapter introduces topic modeling for finding clusters of words that characterize a set of documents, and shows how the `tidy()` verb lets us explore and understand these models using dplyr and ggplot2. This is one of the advantages of the tidy approach to model exploration: the challenges of different output formats are handled by the tidying functions, and we can explore model results using a standard set of tools. In particular, we saw that topic modeling is able to separate and distinguish chapters from four separate books, and explored the limitations of the model by finding words and chapters that it assigned incorrectly.
+本章介绍了主题模型，用于寻找对一组文档具有代表性的词的聚类，展示了 `tidy()` 功能如何帮我们使用 dplyr 和 ggplot2 探索和理解这些模型。这是用 tidy 方法探索模型的一个优势：输出格式不同的挑战可由 tidy 化的函数处理，我们可以用一组标准工具探索模型的结果。特别地，我们看到主题模型能够把来自4本分立的书混合的章节拆分并识别，也探索了模型的局限性，找到了错误分配的词等。
