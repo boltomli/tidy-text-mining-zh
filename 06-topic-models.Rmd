@@ -364,6 +364,42 @@ wrong_words %>%
 
 另外，有可能有的词在一本书中从未出现过但仍然被分配给该书。LDA 算法有一定随意性，有可能用一个主题覆盖到多本书。
 
+## 另一种 LDA 实现
+
+topicmodels 包中的 `LDA()` 函数只是隐含狄利克雷分布分配算法的一种实现。例如 [mallet](https://cran.r-project.org/package=mallet) 包 [@R-mallet] 就实现了对 [MALLET](http://mallet.cs.umass.edu/) Java 文本分类工具包的包装，tidytext 包也提供了对这种模型的输出的 tidy 化工具。如果无法正常调用 `library(mallet)` （主要原因是其 rJava 依赖），可以尝试在终端中运行 `R CMD javareconf`，成功后重新打开 RStudio。
+
+mallet 包采用了不太一样的输入格式。比如输入未经符号化的文档并自行符号化，且需要一个单独的停止词文件。这意味着我们在运行 LDA 之前需要把每个文档的文本都合并成一个字符串。
+
+```{r mallet_model, results = "hide", cache = FALSE, eval = FALSE}
+library(mallet)
+# create a vector with one string per chapter
+collapsed <- by_chapter_word %>%
+  anti_join(stop_words, by = "word") %>%
+  mutate(word = str_replace(word, "'", "")) %>%
+  group_by(document) %>%
+  summarize(text = paste(word, collapse = " "))
+# create an empty file of "stopwords"
+file.create(empty_file <- tempfile())
+docs <- mallet.import(collapsed$document, collapsed$text, empty_file)
+mallet_model <- MalletLDA(num.topics = 4)
+mallet_model$loadDocuments(docs)
+mallet_model$train(100)
+```
+
+然而，模型创建后我们就可以像本章其它部分一样以几乎一致的方式使用 `tidy()` 和 `augment()` 函数。包括提取每个主题中词或每个文档中主题的概率。
+
+```{r cache = FALSE, eval = FALSE}
+# word-topic pairs
+tidy(mallet_model)
+# document-topic pairs
+tidy(mallet_model, matrix = "gamma")
+# column needs to be named "term" for "augment"
+term_counts <- rename(word_counts, term = word)
+augment(mallet_model, term_counts)
+```
+
+可以以同样的方式用 ggplot2 探索和绘制 LDA 输出的模型。
+
 ## 小结
 
 本章介绍了主题模型，用于寻找对一组文档具有代表性的词的聚类，展示了 `tidy()` 功能如何帮我们使用 dplyr 和 ggplot2 探索和理解这些模型。这是用 tidy 方法探索模型的一个优势：输出格式不同的挑战可由 tidy 化的函数处理，我们可以用一组标准工具探索模型的结果。特别地，我们看到主题模型能够把来自4本分立的书混合的章节拆分并识别，也探索了模型的局限性，找到了错误分配的词等。
