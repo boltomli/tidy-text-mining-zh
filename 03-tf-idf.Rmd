@@ -42,12 +42,12 @@ library(tidytext)
 load("data/hongloumeng.rda")
 # 无需移除停止词
 cutter <- worker(bylines = TRUE)
-hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
 chapter_words <- hongloumeng %>%
   mutate(linenumber = row_number(),
        chapter = paste("第",
                        1 + cumsum(str_detect(text, "^第[零一二三四五六七八九十百 ]*([二四六八 ]+十|零) ?一回")),
                        "部分")) %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   ungroup() %>%
   unnest_tokens(word, text) %>%
   count(chapter, word, sort = TRUE) %>%
@@ -191,8 +191,8 @@ load("data/stem.rda")
 ```{r stem_words, dependson = "stem"}
 # 无需移除停止词
 cutter <- worker(bylines = TRUE)
-stem$text <- sapply(segment(stem$text, cutter), function(x){paste(x, collapse = " ")})
 stem_words <- stem %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   unnest_tokens(word, text) %>%
   count(author, word, sort = TRUE) %>%
   ungroup()

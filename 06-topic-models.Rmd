@@ -181,11 +181,11 @@ library(stringr)
 
 # 移除停止词，也可尝试不移除或调整停止词列表以适应文档特性
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-books$text <- sapply(segment(books$text, cutter), function(x){paste(x, collapse = " ")})
 # 分成文档，每个文档为一回（章）
 by_chapter <- books %>%
   group_by(title) %>%
   mutate(chapter = cumsum(str_detect(text, "^第[零一二三四五六七八九十百 ]+回"))) %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   ungroup() %>%
   filter(chapter > 0) %>%
   unite(document, title, chapter)

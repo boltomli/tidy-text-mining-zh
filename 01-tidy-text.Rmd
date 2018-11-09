@@ -187,8 +187,8 @@ load("data/hongloumeng.rda")
 ```{r tidy_hongloumeng, dependson = "hongloumeng"}
 # 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-hongloumeng$text <- sapply(segment(hongloumeng$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_hongloumeng <- hongloumeng %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   unnest_tokens(word, text)
 tidy_hongloumeng
 ```
@@ -240,8 +240,8 @@ load("data/sanyan.rda")
 ```{r tidy_sanyan, dependson = "sanyan"}
 # 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-sanyan$text <- sapply(segment(sanyan$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_sanyan <- sanyan %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   unnest_tokens(word, text)
 tidy_sanyan %>%
   count(word, sort = TRUE)
@@ -256,8 +256,8 @@ load("data/zibuyu.rda")
 ```{r tidy_zibuyu, dependson = "zibuyu"}
 # 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-zibuyu$text <- sapply(segment(zibuyu$text, cutter), function(x){paste(x, collapse = " ")})
 tidy_zibuyu <- zibuyu %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   unnest_tokens(word, text)
 tidy_zibuyu %>%
   count(word, sort = TRUE)
