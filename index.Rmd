@@ -24,7 +24,8 @@ options(
 )
 
 lapply(c("dplyr", "tidytext", "stringr", "tidyr", "ggplot2", "gutenbergr",
-         "janeaustenr", "jiebaR", "showtext", "quanteda", "methods", "scales", "mallet"),
+         "janeaustenr", "jiebaR", "showtext", "methods", "scales", "ggraph", "igraph", "widyr", "topicmodels",
+         "broom", "quanteda", "mallet"),
        function(pkg) {if (system.file(package = pkg) == '') install.packages(pkg)})
 ```
 

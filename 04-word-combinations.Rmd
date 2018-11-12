@@ -232,7 +232,7 @@ bigram_counts
 
 # filter for only relatively common combinations
 bigram_graph <- bigram_counts %>%
-  filter(n > 50) %>%
+  filter(n > 25) %>%
   graph_from_data_frame()
 bigram_graph
 ```
@@ -365,8 +365,7 @@ Consider the book "Pride and Prejudice" divided into 10-line sections, as we did
 library(stringi)
 
 section_words <- hongloumeng_en %>%
-  mutate(book = title) %>%
-  filter(str_sub(book, -2, -1) == " I") %>%
+  mutate(book = cumsum(str_detect(text, regex("HUNG LOU MENG, BOOK [I]+")))) %>%
   mutate(section = row_number() %/% 10) %>%
   filter(section > 0) %>%
   unnest_tokens(word, text) %>%
@@ -391,7 +390,7 @@ For example, we can see that the most common pair of words in a section is "Eliz
 
 ```{r}
 word_pairs %>%
-  filter(item1 == "darcy")
+  filter(item1 == "pao")
 ```
 
 ### Pairwise correlation {#pairwise-correlation}
@@ -431,16 +430,16 @@ This output format is helpful for exploration. For example, we could find the wo
 
 ```{r dependson = "word_cors"}
 word_cors %>%
-  filter(item1 == "pounds")
+  filter(item1 == "ounces")
 ```
 
 This lets us pick particular interesting words and find the other words most associated with them (Figure \@ref(fig:wordcors)).
 
 ```{r wordcors, dependson = "word_cors", fig.height = 8, fig.width = 8, fig.cap = "Words from Pride and Prejudice that were most correlated with 'elizabeth', 'pounds', 'married', and 'pride'"}
 word_cors %>%
-  filter(item1 %in% c("elizabeth", "pounds", "married", "pride")) %>%
+  filter(item1 %in% c("yue", "ounces", "married", "red")) %>%
   group_by(item1) %>%
-  top_n(6) %>%
+  top_n(8) %>%
   ungroup() %>%
   mutate(item2 = reorder(item2, correlation)) %>%
   ggplot(aes(item2, correlation)) +
@@ -455,7 +454,7 @@ Just as we used ggraph to visualize bigrams, we can use it to visualize the corr
 set.seed(2016)
 
 word_cors %>%
-  filter(correlation > .15) %>%
+  filter(correlation > .20) %>%
   graph_from_data_frame() %>%
   ggraph(layout = "fr") +
   geom_edge_link(aes(edge_alpha = correlation), show.legend = FALSE) +
