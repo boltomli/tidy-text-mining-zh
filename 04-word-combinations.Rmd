@@ -1,4 +1,4 @@
-# Relationships between words: n-grams and correlations {#ngrams}
+# 词间关系：n元组（n-grams）及相关度 {#ngrams}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -8,11 +8,11 @@ library(ggplot2)
 theme_set(theme_light())
 ```
 
-So far we've considered words as individual units, and considered their relationships to sentiments or to documents. However, many interesting text analyses are based on the relationships between words, whether examining which words tend to follow others immediately, or that tend to co-occur within the same documents.
+到此为止，我们一直把词看作独立的单元，并考量词与情感或与文档间的关系。然而，很多有意思的文本分析基于词间关系，无论是考察哪个词更经常紧跟另外的词，或是更趋向同时出现在同一文档中的词。
 
-In this chapter, we'll explore some of the methods tidytext offers for calculating and visualizing relationships between words in your text dataset. This includes the `token = "ngrams"` argument, which tokenizes by pairs of adjacent words rather than by individual ones. We'll also introduce two new packages: [ggraph](https://github.com/thomasp85/ggraph), which extends ggplot2 to construct network plots, and [widyr](https://github.com/dgrtwo/widyr), which calculates pairwise correlations and distances within a tidy data frame. Together these expand our toolbox for exploring text within the tidy data framework.
+本章中，我们将探索 tidytext 提供的一些方法，计算和绘制文本数据集中词与词之间的关系。包括 `token = "ngrams"` 参数，按照邻接的词对进行符号化而非按单个词。我们还将介绍两个新的包：[ggraph](https://github.com/thomasp85/ggraph) [@R-ggraph]，扩展 ggplot2 以创建网络点图，以及 [widyr](https://github.com/dgrtwo/widyr) [R-widyr]，可按词对计算相关及在 tidy 数据框中计算距离。这将扩充我们探索 tidy 数据框架的的工具箱。
 
-## Tokenizing by n-gram
+## 按n元组符号化
 
 We've been using the `unnest_tokens` function to tokenize by word, or sometimes by sentence, which is useful for the kinds of sentiment and frequency analyses we've been doing so far. But we can also use the function to tokenize into consecutive sequences of words, called **n-grams**. By seeing how often word X is followed by word Y, we can then build a model of the relationships between them.
 
@@ -45,7 +45,7 @@ This data structure is still a variation of the tidy text format. It is structur
 Notice that these bigrams overlap: "sense and" is one token, while "and sensibility" is another.
 ```
 
-### Counting and filtering n-grams
+### 计算和过滤n元组
 
 Our usual tidy tools apply equally well to n-gram analysis. We can examine the most common bigrams using dplyr's `count()`:
 
@@ -92,7 +92,7 @@ hongloumeng_en %>%
   count(word1, word2, word3, sort = TRUE)
 ```
 
-### Analyzing bigrams
+### 分析二元组
 
 This one-bigram-per-row format is helpful for exploratory analyses of the text. As a simple example, we might be interested in the most common "streets" mentioned in each book:
 
@@ -134,7 +134,7 @@ Much as we discovered in Chapter \@ref(tfidf), the units that distinguish each A
 
 There are advantages and disadvantages to examining the tf-idf of bigrams rather than individual words. Pairs of consecutive words might capture structure that isn't present when one is just counting single words, and may provide context that makes tokens more understandable (for example, "pulteney street", in Northanger Abbey, is more informative than "pulteney"). However, the per-bigram counts are also *sparser*: a typical two-word pair is rarer than either of its component words. Thus, bigrams can be especially useful when you have a very large text dataset.
 
-### Using bigrams to provide context in sentiment analysis
+### 使用二元组为情感分析提供上下文
 
 Our sentiment analysis approach in Chapter \@ref(sentiment) simply counted the appearance of positive or negative words, according to a reference lexicon. One of the problems with this approach is that a word's context can matter nearly as much as its presence. For example, the words "happy" and "like" will be counted as positive, even in a sentence like "I'm not **happy** and I don't **like** it!"
 
@@ -214,7 +214,7 @@ negated_words %>%
   coord_flip()
 ```
 
-### Visualizing a network of bigrams with ggraph
+### 用 ggraph 绘制二元组网络
 
 We may be interested in visualizing all of the relationships among words simultaneously, rather than just the top few at a time. As one common visualization, we can arrange the words into a network, or "graph." Here we'll be referring to a "graph" not in the sense of a visualization, but as a combination of connected nodes. A graph can be constructed from a tidy object since it has three variables:
 
@@ -279,7 +279,7 @@ It may take some experimentation with ggraph to get your networks into a present
 Note that this is a visualization of a **Markov chain**, a common model in text processing. In a Markov chain, each choice of word depends only on the previous word. In this case, a random generator following this model might spit out "dear", then "sir", then "william/walter/thomas/thomas's", by following each word to the most common words that follow it. To make the visualization interpretable, we chose to show only the most common word to word connections, but one could imagine an enormous graph representing all connections that occur in the text.
 ```
 
-### Visualizing bigrams in other texts
+### 绘制其它文本的二元组
 
 We went to a good amount of work in cleaning and visualizing bigrams on a text dataset, so let's collect it into a function so that we easily perform it on other text datasets.
 
@@ -345,7 +345,7 @@ kjv_bigrams %>%
 
 Figure \@ref(fig:kjvbigrams) thus lays out a common "blueprint" of language within the Bible, particularly focused around "thy" and "thou" (which could probably be considered stopwords!) You can use the gutenbergr package and these `count_bigrams`/`visualize_bigrams` functions to visualize bigrams in other classic books you're interested in.
 
-## Counting and correlating pairs of words with the widyr package
+## 用 widyr 包计算和关联词对
 
 Tokenizing by n-gram is a useful way to explore pairs of adjacent words. However, we may also be interested in words that tend to co-occur within particular documents or particular chapters, even if they don't occur next to each other.
 
@@ -357,7 +357,7 @@ knitr::include_graphics("images/widyr.jpg")
 
 We'll examine some of the ways tidy text can be turned into a wide matrix in Chapter \@ref(dtm), but in this case it isn't necessary. The [widyr](https://github.com/dgrtwo/widyr) package makes operations such as computing counts and correlations easy, by simplifying the pattern of "widen data, perform an operation, then re-tidy data" (Figure \@ref(fig:widyr)). We'll focus on a set of functions that make pairwise comparisons between groups of observations (for example, between documents, or sections of text).
 
-### Counting and correlating among sections
+### 在段落间计算和关联
 
 Consider the book "Pride and Prejudice" divided into 10-line sections, as we did (with larger sections) for sentiment analysis in Chapter \@ref(sentiment). We may be interested in what words tend to appear within the same section.
 
@@ -393,7 +393,7 @@ word_pairs %>%
   filter(item1 == "pao")
 ```
 
-### Pairwise correlation {#pairwise-correlation}
+### 词对的相关度 {#pairwise-correlation}
 
 Pairs like "Elizabeth" and "Darcy" are the most common co-occurring words, but that's not particularly meaningful since *they're also the most common individual words.* We may instead want to examine **correlation** among words, which indicates how often they appear together relative to how often they appear separately.
 
@@ -465,6 +465,6 @@ word_cors %>%
 
 Note that unlike the bigram analysis, the relationships here are symmetrical, rather than directional (there are no arrows). We can also see that while pairings of names and titles that dominated bigram pairings are common, such as "colonel/fitzwilliam", we can also see pairings of words that appear close to each other, such as "walk" and "park", or "dance" and "ball".
 
-## Summary
+## 小结
 
 This chapter showed how the tidy text approach is useful not only for analyzing individual words, but also for exploring the relationships and connections between words. Such relationships can involve n-grams, which enable us to see what words tend to appear after others, or co-occurences and correlations, for words that appear in proximity to each other. This chapter also demonstrated the ggraph package for visualizing both of these types of relationships as networks. These network visualizations are a flexible tool for exploring relationships, and will play an important role in the case studies in later chapters.

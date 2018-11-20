@@ -1,3 +1,5 @@
+\mainmatter
+
 # tidy 文本格式 {#tidytext}
 
 ```{r echo = FALSE}
