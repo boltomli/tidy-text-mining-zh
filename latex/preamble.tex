@@ -79,3 +79,26 @@
 \newenvironment{rmdwarning}
   {\begin{rmdblock}{warning}}
   {\end{rmdblock}}
+
+\setCJKmainfont[BoldFont={Noto Sans CJK SC Bold}, ItalicFont={Noto Sans CJK SC Light}]{Noto Sans CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans CJK SC}
+\setCJKfamilyfont{zhsong}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhhei}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhkai}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhfs}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhli}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhyou}{Noto Sans CJK SC}
+\usepackage{savesym}
+\savesymbol{songti}
+\newcommand*{\songti}{\CJKfamily{zhsong}} % 宋体
+\savesymbol{heiti}
+\newcommand*{\heiti}{\CJKfamily{zhhei}}   % 黑体
+\savesymbol{kaishu}
+\newcommand*{\kaishu}{\CJKfamily{zhkai}}  % 楷书
+\savesymbol{fangsong}
+\newcommand*{\fangsong}{\CJKfamily{zhfs}} % 仿宋
+\savesymbol{lishu}
+\newcommand*{\lishu}{\CJKfamily{zhli}} % 隶书
+\savesymbol{youyuan}
+\newcommand*{\youyuan}{\CJKfamily{zhyou}} % 幼圆
