@@ -146,7 +146,7 @@ tidy(AssociatedPress) %>%
 
 ## 例：图书馆大捣乱 {#library-heist}
 
-要检查一个统计方法，很有用的办法是在一个很简单的例子上尝试使用，而且你知道“正确答案”。比如，我们可以收集一组文档，恰好属于4个分离的主题，然后运行主题模型，看看是否算法能正确区分出四个组。这可以让我们确认方法是有效的，并且感知到其如何运作，何时又会失效。我们用来自古典文学的一些数据进行尝试。
+要检查一个统计方法，很有用的办法是在一个很简单的例子上尝试使用，而且你知道“正确答案”。比如，我们可以收集一组文档，恰好属于6个相互分离的主题，然后运行主题模型，看看算法能否正确区分出6个组。这可以让我们确认方法是有效的，并且感知到其如何运作，何时又会失效。我们用来自古典文学的一些数据进行尝试。
 
 假设有个强盗闯入你的书斋，把几大名著及其（非原作者的）续作撕破了：
 
@@ -174,7 +174,7 @@ books <- gutenberg_works(title %in% titles, languages = 'zh') %>%
 load("data/books.rda")
 ```
 
-作为预处理，我们把每部小说都按回分开，再用 tidytext 的 `unnest_tokens()` 分成每词一行。我们把每回当作独立的“文档”，命名为类似 `紅樓夢_1` 或 `水滸傳_11` 这样。在其它应用中，每个文档可以是一篇报纸上的文章，或者博客上的一篇博文。
+作为预处理，我们把每部小说都按回分开，再用 tidytext 的 `unnest_tokens()` 分成每词一行。不幸的是，汉语分词的结果对最终模型影响很大，在不同系统或版本上可能会得到不甚一致的结论，有时差异还非常大。我们把每回当作独立的“文档”，命名为类似 `紅樓夢_1` 或 `水滸傳_11` 这样。在其它应用中，每个文档可以是一篇报纸上的文章，或者博客上的一篇博文。
 
 ```{r word_counts, dependson = "topic_books"}
 library(stringr)
@@ -184,8 +184,8 @@ cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
 # 分成文档，每个文档为一回（章）
 by_chapter <- books %>%
   group_by(title) %>%
-  mutate(chapter = cumsum(str_detect(text, "^第[零一二三四五六七八九十百 ]+回"))) %>%
   mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
+  mutate(chapter = cumsum(str_detect(text, "^第[零一二三四五六七八九十百 ]+回"))) %>%
   ungroup() %>%
   filter(chapter > 0) %>%
   unite(document, title, chapter)
@@ -194,7 +194,6 @@ by_chapter_word <- by_chapter %>%
   unnest_tokens(word, text)
 # 获得文档-词计数
 word_counts <- by_chapter_word %>%
-  anti_join(stop_words) %>%
   count(document, word, sort = TRUE) %>%
   ungroup()
 word_counts
@@ -248,7 +247,7 @@ top_terms %>%
   coord_flip()
 ```
 
-有些主题很清晰地与不同书联系了起来！“賈”属于《紅樓夢》，“行者”应该属于《西遊記》。我们还可注意到，既然 LDA 属于“模糊聚类”方法，有些词为多个主题共有，如“道”“有”“人”等。
+有些主题很清晰地与不同书联系了起来！“賈”属于《紅樓夢》，“行者”应该属于《西遊記》等。我们还可注意到，既然 LDA 属于“模糊聚类”方法，有些词为多个主题共有，如“道”“有”“人”等。
 
 ### 按文档分类 {#per-document}
 
@@ -306,7 +305,7 @@ chapter_classifications %>%
   filter(title != consensus)
 ```
 
-可以看到400章中有22章识别错误，这个结果不算很差。如果考虑到续作与原著的相似性，我们只挑出完全识别错的书。
+可以看到400章中只有几章识别错误，这个结果不算差。考虑到续作与原著的相似性，我们只挑出完全识别错的书。
 
 ```{r book_topics_filtered, dependson = "book_topics"}
 library(stringi)
@@ -316,7 +315,7 @@ chapter_classifications %>%
   filter(str_sub(title, -1, -1) != str_sub(consensus, -1, -1))
 ```
 
-只有三个章节彻底错误，如《紅樓夢》第一回主要讲僧道，与《後西游記 》主题相近可以理解。
+只剩两个章节，如《紅樓夢》第一回情节散漫，并无特定主题。
 
 ### 词的分配：`augment`
 
@@ -357,25 +356,26 @@ assignments %>%
         text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-注意到几乎所有词都正确分配了，除了《水滸傳》与《水滸後傳》明显互有混淆。最常出错的词有哪些？
+注意到几乎所有词都正确分配了，但不少书里的词都倾向于了《水滸後傳》。最常出错的词有哪些？
 
 ```{r wrong_words, dependson = "assignments2"}
+library(stringi)
+
 wrong_words <- assignments %>%
-  filter(title != consensus)
-wrong_words
+  filter(str_sub(title, -1, -1) != str_sub(consensus, -1, -1))
 wrong_words %>%
   count(title, consensus, term, wt = count) %>%
   ungroup() %>%
   arrange(desc(n))
 ```
 
-从“馬”“軍”“寨”“將”“頭領”等词看，《水滸傳》与《水滸後傳》主题很相近。
+这里我们不看原著与续作互相混淆的词。長老、和尚、行者等称呼在多部书中都出现不少，错误分配可以理解。
 
-另外，有可能有的词在一本书中从未出现过但仍然被分配给该书。如“寘”只见于《西遊記》一次，却被分配给了《水滸後傳》。
+另外，有可能有的词在一本书中从未出现过但仍然被分配给该书。如“礙於”只见于《後西游記》一次，却被分配给了《水滸後傳》。
 
 ```{r dependson = "word_counts"}
 word_counts %>%
-  filter(word == "寘")
+  filter(word == "礙於")
 ```
 
 LDA 算法有一定随意性，有可能把一个主题覆盖到多本书。
