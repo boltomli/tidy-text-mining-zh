@@ -10,7 +10,7 @@ theme_set(theme_light())
 
 到此为止，我们一直把词看作独立的单元，并考量词与情感或与文档间的关系。然而，很多有意思的文本分析基于词间关系，无论是考察哪个词更经常紧跟另外的词，或是更趋向同时出现在同一文档中的词。
 
-本章中，我们将探索 tidytext 提供的一些方法，计算和绘制文本数据集中词与词之间的关系。包括 `token = "ngrams"` 参数，按照邻接的词对进行符号化而非按单个词。我们还将介绍两个新的包：[ggraph](https://github.com/thomasp85/ggraph) [@R-ggraph]，扩展 ggplot2 以创建网络点图，以及 [widyr](https://github.com/dgrtwo/widyr) [R-widyr]，可按词对计算相关及在 tidy 数据框中计算距离。这将扩充我们探索 tidy 数据框架的的工具箱。
+本章中，我们将探索 tidytext 提供的一些方法，计算和绘制文本数据集中词与词之间的关系。包括 `token = "ngrams"` 参数，按照邻接的词对进行符号化而非按单个词。我们还将介绍两个新的包：[ggraph](https://github.com/thomasp85/ggraph) [@R-ggraph]，扩展 ggplot2 以创建网络点图，以及 [widyr](https://github.com/dgrtwo/widyr) [@R-widyr]，可按词对计算相关及在 tidy 数据框中计算距离。这将扩充我们探索 tidy 数据框架的的工具箱。
 
 ## 按n元组符号化
 

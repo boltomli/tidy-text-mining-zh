@@ -121,7 +121,7 @@ tidy_books <- original_books %>%
 tidy_books
 ```
 
-这个函数使用 [tokenizers](https://github.com/ropensci/tokenizers) [R-tokenizers] 包把原始数据框里的每行文本按符号分开。默认按词符号化，而其它选项包括了字符、n元组、句、行、段落，以及正则表达式。
+这个函数使用 [tokenizers](https://github.com/ropensci/tokenizers) [@R-tokenizers] 包把原始数据框里的每行文本按符号分开。默认按词符号化，而其它选项包括了字符、n元组、句、行、段落，以及正则表达式。
 
 现在数据已经是每行一词的格式，我们可以用 tidy 工具如 dplyr 进行操作了。对于文本分析，我们经常想要移除停止词；停止词是对分析没有帮助的词，典型的停止词包括极度常见的词，如英文里的 "the"、"of"、"to"等等。我们可以用 `anti_join()` 移除停止词（tidytext 的数据集里存有 `stop_words`）。
 
