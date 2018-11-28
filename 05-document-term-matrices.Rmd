@@ -1,4 +1,4 @@
-# Converting to and from non-tidy formats {#dtm}
+# 非 tidy 格式与 tidy 格式互相转换 {#dtm}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -22,7 +22,7 @@ knitr::include_graphics("images/tidyflow-ch-5.png")
 
 Figure \@ref(fig:tidyflowchartch5) illustrates how an analysis might switch between tidy and non-tidy data structures and tools. This chapter will focus on the process of tidying document-term matrices, as well as casting a tidy data frame into a sparse matrix. We'll also explore how to tidy Corpus objects, which combine raw text with document metadata, into text data frames, leading to a case study of ingesting and analyzing financial articles.
 
-## Tidying a document-term matrix {#tidy-dtm}
+## 将文档-术语矩阵 tidy 化 {#tidy-dtm}
 
 One of the most common structures that text mining packages work with is the [document-term matrix](https://en.wikipedia.org/wiki/Document-term_matrix) (or DTM). This is a matrix where:
 
@@ -39,7 +39,7 @@ DTM objects cannot be used directly with tidy tools, just as tidy data frames ca
 
 As shown in Figure \@ref(fig:tidyflowchartch5), a DTM is typically comparable to a tidy data frame after a `count` or a `group_by`/`summarize` that contains counts or another statistic for each combination of a term and document.
 
-### Tidying DocumentTermMatrix objects
+### 将 DocumentTermMatrix 对象 tidy 化
 
 Perhaps the most widely used implementation of DTMs in R is the `DocumentTermMatrix` class in the tm package. Many available text mining datasets are provided in this format. For example, consider the collection of Associated Press newspaper articles included in the topicmodels package.
 
@@ -99,7 +99,7 @@ ap_sentiments %>%
   coord_flip()
 ```
 
-### Tidying dfm objects
+### 将 dfm 对象 tidy 化
 
 Other text mining packages provide alternative implementations of document-term matrices, such as the `dfm` (document-feature matrix) class from the quanteda package [@R-quanteda]. For example, the quanteda package comes with a corpus of presidential inauguration speeches, which can be converted to a `dfm` using the appropriate function.
 
@@ -180,7 +180,7 @@ year_term_counts %>%
 
 These examples show how you can use tidytext, and the related suite of tidy tools, to analyze sources even if their origin was not in a tidy format.
 
-## Casting tidy text data into a matrix {#cast-dtm}
+## 将 tidy 文本数据投射至矩阵 {#cast-dtm}
 
 Just as some existing text mining packages provide document-term matrices as sample data or output, some algorithms expect such matrices as input. Therefore, tidytext provides `cast_` verbs for converting from a tidy form to these matrices.
 
@@ -226,7 +226,7 @@ austen_dtm
 
 This casting process allows for reading, filtering, and processing to be done using dplyr and other tidy tools, after which the data can be converted into a document-term matrix for machine learning applications. In Chapter \@ref(topicmodeling), we'll examine some examples where a tidy-text dataset has to be converted into a DocumentTermMatrix for processing.
 
-## Tidying corpus objects with metadata
+## 将带有元数据的语料对象 tidy 化
 
 Some data structures are designed to store document collections *before* tokenization, often called a "corpus". One common example is `Corpus` objects from the tm package. These store text alongside **metadata**, which may include an ID, date/time, title, or language for each document.
 
@@ -268,7 +268,7 @@ acq_tokens %>%
   arrange(desc(tf_idf))
 ```
 
-### Example: mining financial articles {#financial}
+### 示例：挖掘金融类文章 {#financial}
 
 `Corpus` objects are a common output format for data ingesting packages, which means the `tidy()` function gives us access to a wide variety of text data. One example is [tm.plugin.webmining](https://cran.r-project.org/package=tm.plugin.webmining), which connects to online feeds to retrieve news articles based on a keyword. For instance, performing `WebCorpus(GoogleFinanceSource("NASDAQ:MSFT"))` allows us to retrieve the 20 most recent articles related to the Microsoft (MSFT) stock.
 
@@ -295,7 +295,7 @@ stock_articles <- data_frame(company = company,
   mutate(corpus = map(symbol, download_articles))
 ```
 
-This uses the `map()` function from the purrr package, which applies a function to each item in `symbol` to create a list, which we store in the `corpus` list column.
+This uses the `map()` function from the purrr package [@R-purrr], which applies a function to each item in `symbol` to create a list, which we store in the `corpus` list column.
 
 ```{r stock_articles, echo = FALSE}
 load("data/stock_articles.rda")
@@ -410,6 +410,6 @@ stock_sentiment_count %>%
 
 Based on this analysis, we'd say that in January 2017 most of the coverage of Yahoo and Twitter was strongly negative, while coverage of Google and Amazon was the most positive. A glance at current financial headlines suggest that it's on the right track. If you were interested in further analysis, you could use one of R's many quantitative finance packages to compare these articles to recent stock prices and other metrics.
 
-## Summary
+## 小结
 
 Text analysis requires working with a variety of tools, many of which have inputs and outputs that aren't in a tidy form. This chapter showed how to convert between a tidy text data frame and sparse document-term matrices, as well as how to tidy a Corpus object containing document metadata. The next chapter will demonstrate another notable example of a package, topicmodels, that requires a document-term matrix as input, showing that these conversion tools are an essential part of text analysis.
