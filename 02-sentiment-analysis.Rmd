@@ -197,7 +197,7 @@ get_sentiments("bing") %>%
 
 ## 最常见的正面词和负面词 {#most-positive-negative}
 
-One advantage of having the data frame with both sentiment and word is that we can analyze word counts that contribute to each sentiment. By implementing `count()` here with arguments of both `word` and `sentiment`, we find out how much each word contributed to each sentiment.
+使用同时包含情感和词的数据框的优势在于我们可以分析对每种情感有贡献的词的计数。通过同时使用 `word` 和 `sentiment` 为参数实现 `count()`，我们可以发现每个词对每个情感贡献多大。
 
 ```{r wordcounts, dependson = "tidy_books_sentiment"}
 bing_word_counts <- tidy_books %>%
@@ -208,9 +208,9 @@ bing_word_counts <- tidy_books %>%
 bing_word_counts
 ```
 
-This can be shown visually, and we can pipe straight into ggplot2, if we like, because of the way we are consistently using tools built for handling tidy data frames.
+我们可以直接通过管道发送到 ggplot2 进行可视化，因为我们一直坚持使用处理 tidy 数据框的工具。
 
-```{r pipetoplot, dependson = "wordcounts", fig.width=8, fig.height=4, fig.cap="Words that contribute to positive and negative sentiment in Jane Austen's novels"}
+```{r pipetoplot, dependson = "wordcounts", fig.width=8, fig.height=4, fig.cap="《红楼梦》英译本中正面和负面情感的词"}
 bing_word_counts %>%
   group_by(sentiment) %>%
   top_n(10) %>%
@@ -224,14 +224,25 @@ bing_word_counts %>%
   coord_flip()
 ```
 
-Figure \@ref(fig:pipetoplot) lets us spot an anomaly in the sentiment analysis; the word "miss" is coded as negative but it is used as a title for young, unmarried women in Jane Austen's works. If it were appropriate for our purposes, we could easily add "miss" to a custom stop-words list using `bind_rows()`. We could implement that with a strategy such as this.
+图 \@ref(fig:pipetoplot) 让我们发现情感分析中的一个异常；词 miss 被记成负面，但在作品中多数时候是指年轻未婚的女士。如果这不符合我们的目的，我们可以用 `bind_rows()` 把这样的词加进自定义停止词列表。我们可以很方便地像这样应用各种策略。
 
-```{r}
-custom_stop_words <- bind_rows(data_frame(word = c("miss"), 
-                                          lexicon = c("custom")), 
+```{r, dependson = "wordcounts", fig.width=8, fig.height=4, fig.cap="《红楼梦》英译本中正面和负面情感的词(去除停止词)"}
+custom_stop_words <- bind_rows(data_frame(word = c("miss", "well"),
+                                          lexicon = c("custom")),
                                stop_words)
 
-custom_stop_words
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  anti_join(custom_stop_words) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(y = "Contribution to sentiment",
+       x = NULL) +
+  coord_flip()
 ```
 
 ## 词云
