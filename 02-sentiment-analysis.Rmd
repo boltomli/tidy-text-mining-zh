@@ -4,6 +4,10 @@
 library(knitr)
 opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
 options(width = 100, dplyr.width = 100)
+library(jiebaR)
+library(showtext)
+showtext_auto(enable = TRUE)
+font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
 library(ggplot2)
 theme_set(theme_light())
 ```
@@ -226,54 +230,49 @@ bing_word_counts %>%
 
 图 \@ref(fig:pipetoplot) 让我们发现情感分析中的一个异常；词 miss 被记成负面，但在作品中多数时候是指年轻未婚的女士。如果这不符合我们的目的，我们可以用 `bind_rows()` 把这样的词加进自定义停止词列表。我们可以很方便地像这样应用各种策略。
 
-```{r, dependson = "wordcounts", fig.width=8, fig.height=4, fig.cap="《红楼梦》英译本中正面和负面情感的词(去除停止词)"}
-custom_stop_words <- bind_rows(data_frame(word = c("miss", "well"),
+```{r custom_stop_words, dependson = "wordcounts"}
+custom_stop_words <- bind_rows(data_frame(word = c("miss", "hung", "well", "master"),
                                           lexicon = c("custom")),
                                stop_words)
-
-bing_word_counts %>%
-  group_by(sentiment) %>%
-  anti_join(custom_stop_words) %>%
-  top_n(10) %>%
-  ungroup() %>%
-  mutate(word = reorder(word, n)) %>%
-  ggplot(aes(word, n, fill = sentiment)) +
-  geom_col(show.legend = FALSE) +
-  facet_wrap(~sentiment, scales = "free_y") +
-  labs(y = "Contribution to sentiment",
-       x = NULL) +
-  coord_flip()
+custom_stop_words
 ```
 
 ## 词云
 
-We've seen that this tidy text mining approach works well with ggplot2, but having our data in a tidy format is useful for other plots as well.
+我们已经看到这个 tidy 文本挖掘方法用 ggplot2 绘图很简单，不仅如此，tidy 格式的数据用其它绘图方法也很方便。
 
-For example, consider the wordcloud package, which uses base R graphics. Let's look at the most common words in Jane Austen's works as a whole again, but this time as a wordcloud in Figure \@ref(fig:firstwordcloud).
+比如，考虑使用 wordcloud2 包 [@R-wordcloud2] 以便显示中文。我们再来看一下《红楼梦》中最常见的词，但这次是词云图 \@ref(fig:firstwordcloud)。
 
-```{r firstwordcloud, dependson = "tidy_books_sentiment", fig.height=6, fig.width=6, fig.cap="The most common words in Jane Austen's novels"}
+```{r firstwordcloud, fig.height=6, fig.width=6, fig.cap="《红楼梦》常见词云"}
+library(wordcloud2)
+load("data/hongloumeng.rda")
+
+# 不保留标点符号；移除停止词
+cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
+hongloumeng %>%
+  mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
+  unnest_tokens(word, text) %>%
+  count(word) %>%
+  top_n(100) %>%
+  wordcloud2(fontFamily = "WenQuanYi Micro Hei")
+```
+
+使用 R base 的 wordcloud 包 [@R-wordcloud] 包含了 `comparison.cloud()`，可以用 reshape2 的 `acast()` 把数据框转变为矩阵。用内部联接标记情感分析正面和负面的词，然后找到最常见的正面和负面词。在把数据发给 `comparison.cloud()` 之前，都可以用联接、管道和 dplyr，因为数据为 tidy 格式。
+
+```{r wordcloud, dependson = "custom_stop_words", fig.height=5, fig.width=5, fig.cap="《红楼梦》英译本中最常见的正面与负面词"}
+library(reshape2)
 library(wordcloud)
 
 tidy_books %>%
-  anti_join(stop_words) %>%
-  count(word) %>%
-  with(wordcloud(word, n, max.words = 100))
-```
-
-In other functions, such as `comparison.cloud()`, you may need to turn the data frame into a matrix with reshape2's `acast()`. Let's do the sentiment analysis to tag positive and negative words using an inner join, then find the most common positive and negative words. Until the step where we need to send the data to `comparison.cloud()`, this can all be done with joins, piping, and dplyr because our data is in tidy format.
-
-```{r wordcloud, dependson = "tidy_books_sentiment", fig.height=5, fig.width=5, fig.cap="Most common positive and negative words in Jane Austen's novels"}
-library(reshape2)
-
-tidy_books %>%
   inner_join(get_sentiments("bing")) %>%
+  anti_join(custom_stop_words) %>%
   count(word, sentiment, sort = TRUE) %>%
   acast(word ~ sentiment, value.var = "n", fill = 0) %>%
   comparison.cloud(colors = c("gray20", "gray80"),
                    max.words = 100)
 ```
 
-The size of a word's text in Figure \@ref(fig:wordcloud) is in proportion to its frequency within its sentiment. We can use this visualization to see the most important positive and negative words, but the sizes of the words are not comparable across sentiments.
+图 \@ref(fig:wordcloud) 中词的大小与其在其情感中的出现频次成正比。我们可以从这个可视化中看出最重要的正面与负面的词，但要注意不同情感间词的大小不能直接比较。
 
 ## 查看超越词的单元
 
@@ -339,4 +338,3 @@ These are the chapters with the most sad words in each book, normalized for numb
 ## 小结
 
 Sentiment analysis provides a way to understand the attitudes and opinions expressed in texts. In this chapter, we explored how to approach sentiment analysis using tidy data principles; when text data is in a tidy data structure, sentiment analysis can be implemented as an inner join. We can use sentiment analysis to understand how a narrative arc changes throughout its course or what words with emotional and opinion content are important for a particular text. We will continue to develop our toolbox for applying sentiment analysis to different kinds of text in our case studies later in this book.
-
