@@ -111,7 +111,7 @@ library(tidyr)
 
 net_sentiment <- tidy_books %>%
   inner_join(get_sentiments("bing")) %>%
-  count(book, index = linenumber %/% 150, sentiment) %>%
+  count(book, index = linenumber %/% 100, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
   mutate(sentiment = positive - negative)
 ```
@@ -130,46 +130,46 @@ ggplot(net_sentiment, aes(index, sentiment, fill = book)) +
 
 ## 对三个情感字典进行比较
 
-With several options for sentiment lexicons, you might want some more information on which one is appropriate for your purposes. Let's use all three sentiment lexicons and examine how the sentiment changes across the narrative arc of *Pride and Prejudice*. First, let's use `filter()` to choose only the words from the one novel we are interested in.
+既然情感词典有几个选择，你可能想要得到更多信息，哪个词典更适合你的用途。我们在《红楼梦》英译本的下半部分使用全部的三个情感词典，查看情感如何变化。首先，使用 `filter()` 选出我们要用到的书里的词。
 
-```{r pride_prejudice, dependson = "tidy_books_sentiment"}
-pride_prejudice <- tidy_books %>% 
+```{r book_2, dependson = "tidy_books_sentiment"}
+book_2 <- tidy_books %>% 
   filter(book == "2")
 
-pride_prejudice
+book_2
 ```
 
-Now, we can use `inner_join()` to calculate the sentiment in different ways. 
+现在使用 `inner_join()` 用不同的方法计算情感。
 
 ```{block, type = "rmdnote"}
 Remember from above that the AFINN lexicon measures sentiment with a numeric score between -5 and 5, while the other two lexicons categorize words in a binary fashion, either positive or negative. To find a sentiment score in chunks of text throughout the novel, we will need to use a different pattern for the AFINN lexicon than for the other two. 
 ```
 
-Let's again use integer division (`%/%`) to define larger sections of text that span multiple lines, and we can use the same pattern with `count()`, `spread()`, and `mutate()` to find the net sentiment in each of these sections of text.
+依然使用整数除法（`%/%`）确定含有多行的较大段的文本，用同样的方式使用 `count()`、`spread()`和`mutate()` 算出每段文本的情感净值。
 
-```{r comparesentiment, dependson = "pride_prejudice"}
-afinn <- pride_prejudice %>% 
+```{r comparesentiment, dependson = "book_2"}
+afinn <- book_2 %>% 
   inner_join(get_sentiments("afinn")) %>% 
-  group_by(index = linenumber %/% 80) %>% 
+  group_by(index = linenumber %/% 100) %>% 
   summarise(sentiment = sum(score)) %>% 
   mutate(method = "AFINN")
 
-bing_and_nrc <- bind_rows(pride_prejudice %>% 
+bing_and_nrc <- bind_rows(book_2 %>% 
                             inner_join(get_sentiments("bing")) %>%
                             mutate(method = "Bing et al."),
-                          pride_prejudice %>% 
+                          book_2 %>% 
                             inner_join(get_sentiments("nrc") %>% 
                                          filter(sentiment %in% c("positive", 
                                                                  "negative"))) %>%
                             mutate(method = "NRC")) %>%
-  count(method, index = linenumber %/% 80, sentiment) %>%
+  count(method, index = linenumber %/% 100, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
   mutate(sentiment = positive - negative)
 ```
 
-We now have an estimate of the net sentiment (positive - negative) in each chunk of the novel text for each sentiment lexicon. Let's bind them together and visualize them in Figure \@ref(fig:compareplot).
+现在有了每个情感词典对小说文本中每段的情感净值的估值（正面计数 - 负面计数）。在图 \@ref(fig:compareplot) 中可以看到全部的结果。
 
-(ref:comparecap) Comparing three sentiment lexicons using *Pride and Prejudice*
+(ref:comparecap) 用《红楼梦》英译本下半部比较三个情感词典
 
 ```{r compareplot, dependson = "comparesentiment", fig.width=9, fig.height=7.5, fig.cap="(ref:comparecap)"}
 bind_rows(afinn, 
@@ -179,10 +179,9 @@ bind_rows(afinn,
   facet_wrap(~method, ncol = 1, scales = "free_y")
 ```
 
-The three different lexicons for calculating sentiment give results that are different in an absolute sense but have similar relative trajectories through the novel. We see similar dips and peaks in sentiment at about the same places in the novel, but the absolute values are significantly different. The AFINN lexicon
-gives the largest absolute values, with high positive values. The lexicon from Bing et al. has lower absolute values and seems to label larger blocks of contiguous positive or negative text. The NRC results are shifted higher relative to the other two, labeling the text more positively, but detects similar relative changes in the text. We find similar differences between the methods when looking at other novels; the NRC sentiment is high, the AFINN sentiment has more variance, the Bing et al. sentiment appears to find longer stretches of similar text, but all three agree roughly on the overall trends in the sentiment through a narrative arc.
+用来计算情感的三个不同的词典给出的结果有所不同，但随着整个小说的进展的变化相似。我们在小说的相同位置能看到相似的峰和谷，但绝对值很不一样。AFINN 词典给出的绝对值最高，达到了最大正值和最小负值。来自 Bing 词典的绝对值较低。与另两个词典相比，NRC 的结果偏高，对文本的标注偏向正面，但相对而言依然检测到了类似的文本变化趋势。我们发现这几个词典在不同的小说中有相似的表现；NRC 情感值偏高，AFINN 情感值变化较丰富，Bing 有时候会找到更长的连续情感文本，但基本上全部三个词典在同一个叙事路径上会得到一致的趋势。
 
-Why is, for example, the result for the NRC lexicon biased so high in sentiment compared to the Bing et al. result? Let's look briefly at how many positive and negative words are in these lexicons.
+为什么，比如说，NRC 词典的结果在情感上的倾向相比起来如此之高？我们粗略看看这些词典中正面与负面的词数。
 
 ```{r}
 get_sentiments("nrc") %>% 
@@ -194,7 +193,7 @@ get_sentiments("bing") %>%
   count(sentiment)
 ```
 
-Both lexicons have more negative than positive words, but the ratio of negative to positive words is higher in the Bing lexicon than the NRC lexicon. This will contribute to the effect we see in the plot above, as will any systematic difference in word matches, e.g. if the negative words in the NRC lexicon do not match the words that Jane Austen uses very well. Whatever the source of these differences, we see similar relative trajectories across the narrative arc, with similar changes in slope, but marked differences in absolute sentiment from lexicon to lexicon. This is all important context to keep in mind when choosing a sentiment lexicon for analysis.
+两个词典都是负面词更多，但负面与正面之比 Bing 词典要高于 NRC 词典。这对我们在图 \@ref(fig:compareplot) 中看到的现象有所贡献，也可能有词匹配的系统性的不同，如 NRC 词典中的负面词可能与小说中使用的不甚吻合。无论这些不同来自何处，我们都在整个叙事路径上看到了相似的进展，相似的坡度，但词典间会标记不同的绝对值。在为分析选择情感词典时需要考虑这些重要的区别。
 
 ## 最常见的正面词和负面词 {#most-positive-negative}
 
