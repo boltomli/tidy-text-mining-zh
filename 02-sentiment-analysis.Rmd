@@ -54,9 +54,9 @@ Dictionary-based methods like the ones we are discussing find the total sentimen
 
 ## 使用内部联接进行情感分析
 
-With data in a tidy format, sentiment analysis can be done as an inner join. This is another of the great successes of viewing text mining as a tidy data analysis task; much as removing stop words is an antijoin operation, performing sentiment analysis is an inner join operation.
+使用 tidy 格式的数据，可以用内部联接的方式完成情感分析。这是将文本挖掘视为 tidy 数据分析任务的又一伟大胜利；就和移除停止词是一个反向联接操作一样，执行情感分析是一个内部联接操作。
 
-Let's look at the words with a joy score from the NRC lexicon. What are the most common joy words in *Emma*? First, we need to take the text of the novels and convert the text to the tidy format using `unnest_tokens()`, just as we did in Section \@ref(tidyworks). Let's also set up some other columns to keep track of which line and chapter of the book each word comes from; we use `group_by` and `mutate` to construct those columns.
+我们看看来自NRC词典的含有开心成分的词。在《红楼梦》英译本中，最常见的表示开心的词有哪些？首先，我们从小说中得到文本，然后用 `unnest_tokens()` 把文本转换为 tidy 格式，如同像在节 \@ref(tidyworks) 中所做的。同时也建立一些其它的列来保存每个词来自哪个章回的哪行之类的信息；我们用 `group_by` 和 `mutate` 来创建这些列。
 
 ```{r eval = FALSE}
 library(gutenbergr)
@@ -82,9 +82,9 @@ tidy_books <- hongloumeng_en %>%
   unnest_tokens(word, text)
 ```
 
-Notice that we chose the name `word` for the output column from `unnest_tokens()`. This is a convenient choice because the sentiment lexicons and stop word datasets have columns named `word`; performing inner joins and anti-joins is thus easier.
+注意，我们选择 `word` 作为来自 `unnest_tokens()` 的输出列名。这个选择是为了方便，因为情感词典和停止词数据集都用列名 `word`；执行内部联接和反向联接会更容易。
 
-Now that the text is in a tidy format with one word per row, we are ready to do the sentiment analysis. First, let's use the NRC lexicon and `filter()` for the joy words. Next, let's `filter()` the data frame with the text from the books for the words from *Emma* and then use `inner_join()` to perform the sentiment analysis. What are the most common joy words in *Emma*? Let's use `count()` from dplyr.
+现在文本已经是 tidy 格式，每行一个词，我们可以开始情感分析。首先，使用 NRC 词典和 `filter()` 得到开心的词。之后，用 `filter()` 得到上半部书的词，然后用 `inner_join()` 执行情感分析。上半部书里最常见表示开心的词有哪些？使用 dplyr 里的 `count()`。
 
 ```{r nrcjoy, dependson = "tidy_books_sentiment"}
 nrc_joy <- get_sentiments("nrc") %>% 
@@ -96,39 +96,37 @@ tidy_books %>%
   count(word, sort = TRUE)
 ```
 
-We see mostly positive, happy words about hope, friendship, and love here. We also see some words that may not be used joyfully by Austen ("found", "present"); we will discuss this in more detail in Section \@ref(most-positive-negative).
+可以看到多数正面的词如 young、good 和 smile 等。也可以看到一些可能不是用于开心含义的词如 found 和 present；我们将在节 \@ref(most-positive-negative) 中讨论更多细节。
 
-We can also examine how sentiment changes throughout each novel. We can do this with just a handful of lines that are mostly dplyr functions. First, we find a sentiment score for each word using the Bing lexicon and `inner_join()`. 
-
-Next, we count up how many positive and negative words there are in defined sections of each book. We define an `index` here to keep track of where we are in the narrative; this index (using integer division) counts up sections of 80 lines of text.
+我们也可以查看情感在整部小说中如何变化，只用主要来自 dplyr 的几行函数。首先，用 Bing 词典和 `inner_join()` 找到每个词的情感得分。然后，计算每个部分中正面和负面词的数量。我们定义一个 `index` 来记录叙事的进程；这个索引（使用整数除法）按每150行文本进行累加。
 
 ```{block, type = "rmdtip"}
 The `%/%` operator does integer division (`x %/% y` is equivalent to `floor(x/y)`) so the index keeps track of which 80-line section of text we are counting up negative and positive sentiment in. 
 ```
 
-Small sections of text may not have enough words in them to get a good estimate of sentiment while really large sections can wash out narrative structure. For these books, using 80 lines works well, but this can vary depending on individual texts, how long the lines were to start with, etc. We then use `spread()` so that we have negative and positive sentiment in separate columns, and lastly calculate a net sentiment (positive - negative).
+过小的文本段落可能没有足够的词以得到较好的情感估值，而过大的段落会打破叙事结构。对本书而言，100-200行看起来比较合适，不同文本可能适用不同的行数。之后可以用 `spread()` 在不同的列中分别得到负面和正面情感，最后计算情感净值（正面计数 - 负面计数）。
 
-```{r janeaustensentiment, dependson = "tidy_books_sentiment"}
+```{r net_sentiment, dependson = "tidy_books_sentiment"}
 library(tidyr)
 
-jane_austen_sentiment <- tidy_books %>%
+net_sentiment <- tidy_books %>%
   inner_join(get_sentiments("bing")) %>%
-  count(book, index = linenumber %/% 80, sentiment) %>%
+  count(book, index = linenumber %/% 150, sentiment) %>%
   spread(sentiment, n, fill = 0) %>%
   mutate(sentiment = positive - negative)
 ```
 
-Now we can plot these sentiment scores across the plot trajectory of each novel. Notice that we are plotting against the `index` on the x-axis that keeps track of narrative time in sections of text.
+现在可以为上下半部分别绘制情感分值图。注意，横轴为记录叙事文本时值的索引。
 
-```{r sentimentplot, dependson = "janeaustensentiment", fig.width=9, fig.height=10, fig.cap="Sentiment through the narratives of Jane Austen's novels"}
+```{r sentimentplot, dependson = "net_sentiment", fig.width=9, fig.height=10, fig.cap="《红楼梦》英译本叙事过程中的情感"}
 library(ggplot2)
 
-ggplot(jane_austen_sentiment, aes(index, sentiment, fill = book)) +
+ggplot(net_sentiment, aes(index, sentiment, fill = book)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~book, ncol = 2, scales = "free_x")
 ```
 
-We can see in Figure \@ref(fig:sentimentplot) how the plot of each novel changes toward more positive or negative sentiment over the trajectory of the story.
+在图 \@ref(fig:sentimentplot) 中可以看到情感随着故事的进展是如何变化的。
 
 ## 对三个情感字典进行比较
 
