@@ -80,7 +80,7 @@ tidy_books <- hongloumeng_en %>%
   mutate(book = cumsum(str_detect(text, regex("HUNG LOU MENG, BOOK [I]+")))) %>%
   group_by(book) %>%
   mutate(linenumber = row_number(),
-         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", 
+         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc].", 
                                                  ignore_case = TRUE)))) %>%
   ungroup() %>%
   unnest_tokens(word, text)
@@ -102,7 +102,7 @@ tidy_books %>%
 
 可以看到多数正面的词如 young、good 和 smile 等。也可以看到一些可能不是用于开心含义的词如 found 和 present；我们将在节 \@ref(most-positive-negative) 中讨论更多细节。
 
-我们也可以查看情感在整部小说中如何变化，只用主要来自 dplyr 的几行函数。首先，用 Bing 词典和 `inner_join()` 找到每个词的情感得分。然后，计算每个部分中正面和负面词的数量。我们定义一个 `index` 来记录叙事的进程；这个索引（使用整数除法）按每150行文本进行累加。
+我们也可以查看情感在整部小说中如何变化，只用主要来自 dplyr 的几行函数。首先，用 Bing 词典和 `inner_join()` 找到每个词的情感得分。然后，计算每个部分中正面和负面词的数量。我们定义一个 `index` 来记录叙事的进程；这个索引（使用整数除法）按每100行文本进行累加。
 
 ```{block, type = "rmdtip"}
 The `%/%` operator does integer division (`x %/% y` is equivalent to `floor(x/y)`) so the index keeps track of which 80-line section of text we are counting up negative and positive sentiment in. 
@@ -253,7 +253,7 @@ hongloumeng %>%
   mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   unnest_tokens(word, text) %>%
   count(word) %>%
-  top_n(100) %>%
+  top_n(80) %>%
   wordcloud2(fontFamily = "WenQuanYi Micro Hei")
 ```
 
@@ -269,50 +269,45 @@ tidy_books %>%
   count(word, sentiment, sort = TRUE) %>%
   acast(word ~ sentiment, value.var = "n", fill = 0) %>%
   comparison.cloud(colors = c("gray20", "gray80"),
-                   max.words = 100)
+                   max.words = 80)
 ```
 
 图 \@ref(fig:wordcloud) 中词的大小与其在其情感中的出现频次成正比。我们可以从这个可视化中看出最重要的正面与负面的词，但要注意不同情感间词的大小不能直接比较。
 
-## 查看超越词的单元
+## 查看词以上的单元
 
-Lots of useful work can be done by tokenizing at the word level, but sometimes it is useful or necessary to look at different units of text. For example, some sentiment analysis algorithms look beyond only unigrams (i.e. single words) to try to understand the sentiment of a sentence as a whole. These algorithms try to understand that
+很多有意义的工作可以通过在词的层次上符号化完成，但有时候需要甚至必须观察不同的文本单元。例如，有些情感分析算法关注超出一元组（即单个词）的单元，尝试在整句范围内理解情感。这些算法尝试判断
 
-> I am not having a good day.
+> 我今天不开心。
 
-is a sad sentence, not a happy one, because of negation. R packages included coreNLP [@R-coreNLP], cleanNLP [@R-cleanNLP], and sentimentr [@R-sentimentr] are examples of such sentiment analysis algorithms. For these, we may want to tokenize text into sentences, and it makes sense to use a new name for the output column in such a case.
+属于悲伤，而非高兴，因为有否定词的存在。R 包如 coreNLP [@R-coreNLP]、cleanNLP [@R-cleanNLP] 和 sentimentr [@R-sentimentr] 都属于这种情感分析算法。为此，我们需要把文本按句符号化，于是也需要为输出列取个新的名字。
 
-```{r PandP}
-PandP_sentences <- data_frame(text = prideprejudice) %>% 
+```{r hongloumeng_en_sentences}
+hongloumeng_en_sentences <- data_frame(text = hongloumeng_en$text) %>%
   unnest_tokens(sentence, text, token = "sentences")
+hongloumeng_en_sentences$sentence[20]
 ```
 
-Let's look at just one.
+按句进行符号化在 UTF-8 文本上可能会有问题，把标点符号处理为 ASCII 较好。如果需要的话，可以尝试使用 `iconv()`，如加入进行 `iconv(text, to = 'latin1')` 的 `mutate`。
 
-```{r PandPsentences, dependson = "PandP"}
-PandP_sentences$sentence[2]
-```
+`unnest_tokens()` 的另一个选择是使用正则表达式。比如，按章回把文本切分为数据框。
 
-The sentence tokenizing does seem to have a bit of trouble with UTF-8 encoded text, especially with sections of dialogue; it does much better with punctuation in ASCII. One possibility, if this is important, is to try using `iconv()`, with something like `iconv(text, to = 'latin1')` in a mutate statement before unnesting.
-
-Another option in `unnest_tokens()` is to split into tokens using a regex pattern. We could use this, for example, to split the text of Jane Austen's novels into a data frame by chapter.
-
-```{r austen_chapters, dependson = "tidy_books_sentiment"}
-austen_chapters <- hongloumeng_en %>%
+```{r hongloumeng_en_chapters, dependson = "tidy_books_sentiment"}
+hongloumeng_en_chapters <- hongloumeng_en %>%
   mutate(book = cumsum(str_detect(text, regex("HUNG LOU MENG, BOOK [I]+")))) %>%
   group_by(book) %>%
   unnest_tokens(chapter, text, token = "regex", 
-                pattern = "chapter|CHAPTER [\\dIVXLC]") %>%
+                pattern = "CHAPTER [\\dIVXLC].") %>%
   ungroup()
 
-austen_chapters %>% 
+hongloumeng_en_chapters %>% 
   group_by(book) %>% 
   summarise(chapters = n())
 ```
 
-We have recovered the correct number of chapters in each novel (plus an "extra" row for each novel title). In the `austen_chapters` data frame, each row corresponds to one chapter.
+现在我们得到了全部章节（以及“额外”的一行代表属于哪本书）。在 `hongloumeng_en_chapters` 数据框中，每行代表一章。
 
-Near the beginning of this chapter, we used a similar regex to find where all the chapters were in Austen's novels for a tidy data frame organized by one-word-per-row. We can use tidy text analysis to ask questions such as what are the most negative chapters in each of Jane Austen's novels? First, let's get the list of negative words from the Bing lexicon. Second, let's make a data frame of how many words are in each chapter so we can normalize for the length of chapters. Then, let's find the number of negative words in each chapter and divide by the total words in each chapter. For each book, which chapter has the highest proportion of negative words?
+在本章开始处，我们用类似的正则表达式在小说中找出了全部章回，每行一个词的 tidy 数据框。我们可以用 tidy 文本分析回答问题如何为最负面的章回。首先，从 Bing 词典中得到全部负面词。其次，为每章制作一个词数的数据框，以便把章节长度均一化。之后，找到每章中负面词的个数，并除以该章的词数。对于上下半部，哪些章负面词的比例最高？
 
 ```{r chapters, dependson = "tidy_books_sentiment"}
 bingnegative <- get_sentiments("bing") %>% 
@@ -329,12 +324,12 @@ tidy_books %>%
   left_join(wordcounts, by = c("book", "chapter")) %>%
   mutate(ratio = negativewords/words) %>%
   filter(chapter != 0) %>%
-  top_n(1) %>%
+  top_n(3) %>%
   ungroup()
 ```
 
-These are the chapters with the most sad words in each book, normalized for number of words in the chapter. What is happening in these chapters? In Chapter 43 of *Sense and Sensibility* Marianne is seriously ill, near death, and in Chapter 34 of *Pride and Prejudice* Mr. Darcy proposes for the first time (so badly!). Chapter 46 of *Mansfield Park* is almost the end, when everyone learns of Henry's scandalous adultery, Chapter 15 of *Emma* is when horrifying Mr. Elton proposes, and in Chapter 21 of *Northanger Abbey* Catherine is deep in her Gothic faux fantasy of murder, etc. Chapter 4 of *Persuasion* is when the reader gets the full flashback of Anne refusing Captain Wentworth and how sad she was and what a terrible mistake she realized it to be.
+这些是含有最多负面词的章回，按章的词数进行了均一化。这些章中发生了什么？第2卷第21章对应第四十四回《变生不测凤姐泼醋 喜出望外平儿理妆》。凤姐发现贾琏偷情，进门撕打叫骂，贾琏提剑欲杀凤姐，后鲍二家的上吊自尽，其间穿插宝玉为平儿黛玉伤感，确实全篇较低沉。需要说明的是此《红楼梦》英译本未包含悲剧性的结尾。
 
 ## 小结
 
-Sentiment analysis provides a way to understand the attitudes and opinions expressed in texts. In this chapter, we explored how to approach sentiment analysis using tidy data principles; when text data is in a tidy data structure, sentiment analysis can be implemented as an inner join. We can use sentiment analysis to understand how a narrative arc changes throughout its course or what words with emotional and opinion content are important for a particular text. We will continue to develop our toolbox for applying sentiment analysis to different kinds of text in our case studies later in this book.
+情感分析提供了理解文本表现的态度和倾向的一种方法。本章中，我们探索了如何使用 tidy 数据原则进行情感分析；文本数据为 tidy 数据结构时，情感分析可以通过内部联接实现。我们可以用情感分析理解叙事路径如何随着情节开展发生变化，以及哪些带有情绪与倾向内容的词对于特定文本比较重要。我们将继续开发我们的工具箱，在本书后面的例子中我们将把情感分析应用于不同种类的文本。
