@@ -6,6 +6,6 @@ Please note that this work is written under a [Contributor Code of Conduct](COND
 
 ## Build
 
-Dependency to build non-HTML format: `webshot::install_phantomjs()`.
+Dependency to build non-HTML format: `Rscript -e 'webshot::install_phantomjs()'`.
 
 Run `make` to build all formats of the book, or `make html` `make pdf` `make epub` separately. Run `make deploy` to deploy to live site.
