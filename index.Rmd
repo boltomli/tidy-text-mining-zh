@@ -10,6 +10,7 @@ link-citations: yes
 colorlinks: yes
 lot: yes
 lof: yes
+always_allow_html: yes
 geometry: [b5paper, tmargin=2.5cm, bmargin=2.5cm, lmargin=3.5cm, rmargin=2.5cm]
 knit: "bookdown::render_book"
 site: bookdown::bookdown_site
