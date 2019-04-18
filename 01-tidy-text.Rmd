@@ -34,7 +34,7 @@ Tidy 数据集可以使用一组标准的 “tidy” 工具进行操作，包括
 
 ## `unnest_tokens` 函数
 
-英文原著使用了Emily Dickinson的一首小诗，这里选取李白的《静夜思》作为中文的例子。
+这里选取李白的《静夜思》作为中文的例子。
 
 ```{r text}
 text <- c("床前明月光，",
@@ -44,7 +44,7 @@ text <- c("床前明月光，",
 text
 ```
 
-中文一般不用空格隔开词，所以需要完成分词的步骤（结果并不完全准确）。这里选择 [jiebaR](https://github.com/qinwf/jiebaR) [@R-jiebaR]，内置了多种分词方式并直接支持停止词等。
+中文一般不用空格隔开词，所以需要完成分词的步骤（出于各种原因，分词结果并不总是准确）。这里选择 [jiebaR](https://github.com/qinwf/jiebaR) [@R-jiebaR]，内置了多种分词方式并直接支持停止词等。
 
 ```{r text_wb, dependson = "text"}
 library(jiebaR)
@@ -95,7 +95,7 @@ text_df %>%
 knitr::include_graphics("images/tidyflow-ch-1.png")
 ```
 
-## 用 tidy 处理大作 {#tidyworks}
+## 用 tidy 处理名著 {#tidyworks}
 
 英文的例子可使用 [janeaustenr](https://cran.r-project.org/package=janeaustenr) [@R-janeaustenr] 引入 Jane Austen 的六部完整已发表小说的文本，并可转换为 tidy 格式。janeaustenr 包提供的文本格式每行为书页里的一行，这个行严格对应着实体书里印刷的行。咱们从这里开始，依旧使用 `mutate()` 添加 `linenumber` 批注以记录原始格式里的行数，并且添加 `chapter` 批注（使用正则表达式）以找到所有的章节位置。
 
@@ -172,46 +172,41 @@ To learn more about gutenbergr, check out the [package's tutorial at rOpenSci](h
 
 ## 用 tidy 处理中文大作 {#tidyworks-zh}
 
-中文暂时缺少已整理好的类似 janeaustenr 这样的数据集，我们可以从《红楼梦》的文本开始。
+笔者整理了一个类似 janeaustenr 的明清小说数据集 [@R-mqxsr]，我们可以从四大名著的文本开始。
 
-```{r eval = FALSE}
-library(gutenbergr)
-
-hongloumeng <- gutenberg_download(24264)
-```
-
-```{r hongloumeng, echo = FALSE}
-load("data/hongloumeng.rda")
+```{r mingqingxiaoshuo}
+library(mqxsr)
+mingqingxiaoshuo <- books()
 ```
 
 移除过于常见的停止词并分词。注意和第一个例子的区别，这次我们没有保留标点符号（即使保留了也会在下一步被移除）。另外，由于中英文的不同以及包的具体实现有差别，我们直接在分词的阶段就把停止词移除了。
 
-```{r tidy_hongloumeng, dependson = "hongloumeng"}
+```{r tidy_mingqingxiaoshuo, dependson = "mingqingxiaoshuo"}
 # 不保留标点符号；移除停止词
 cutter <- worker(bylines = TRUE, stop_word = "data/stop_word_zh.utf8")
-tidy_hongloumeng <- hongloumeng %>%
+tidy_mingqingxiaoshuo <- mingqingxiaoshuo %>%
   mutate(text = sapply(segment(text, cutter), function(x){paste(x, collapse = " ")})) %>%
   unnest_tokens(word, text)
-tidy_hongloumeng
+tidy_mingqingxiaoshuo
 ```
 
 按词频进行排序。
 
-```{r dependson = "tidy_hongloumeng"}
-tidy_hongloumeng %>%
+```{r dependson = "tidy_mingqingxiaoshuo"}
+tidy_mingqingxiaoshuo %>%
   count(word, sort = TRUE)
 ```
 
 图 \@ref(fig:plotcount-zh) 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
 
-```{r plotcount-zh, dependson = "tidy_hongloumeng", fig.width=6, fig.height=5, fig.cap="《红楼梦》中最常见的词"}
+```{r plotcount-zh, dependson = "tidy_mingqingxiaoshuo", fig.width=6, fig.height=5, fig.cap="四大名著中最常见的词"}
 library(showtext)
 showtext_auto(enable = TRUE)
 font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
 
-tidy_hongloumeng %>%
+tidy_mingqingxiaoshuo %>%
   count(word, sort = TRUE) %>%
-  filter(n > 4000) %>%
+  filter(n >= 5000) %>%
   mutate(word = reorder(word, n)) %>%
   ggplot(aes(word, n)) +
   geom_col() +
@@ -224,7 +219,7 @@ tidy_hongloumeng %>%
 
 文本挖掘中一个通用的任务是察看词频，就像我们前面完成的那样，然后可以在不同的文本间比较词出现的频率。使用 tidy 数据原则，我们可以很自然平滑地完成这个任务。
 
-英文原著用威尔斯（19世纪末二十世纪初）的科幻小说和勃朗特姐妹（十九世纪，活动时间晚于奥斯汀）作品集分别与简·奥斯汀的作品（主要出版于十九世纪一〇年代）进行比较。中文我们可以使用冯梦龙的《三言》和袁枚《子不语》《续子不语》分别与《红楼梦》进行比较。冯梦龙[明]时间较早，而曹雪芹[清]与袁枚[清]处于同一时代，但题材上《红楼梦》与《三言》更为接近。这些作品间的相似程度将如何呢？
+英文原著用威尔斯（19世纪末二十世纪初）的科幻小说和勃朗特姐妹（十九世纪，活动时间晚于奥斯汀）作品集分别与简·奥斯汀的作品（主要出版于十九世纪一〇年代）进行比较。中文我们可以使用冯梦龙的《三言》和袁枚《子不语》《续子不语》分别与四大名著（均为小说）进行比较。这些作品间的相似程度将如何呢？
 
 使用 `gutenberg_download()` 和相应的ID获取各个作品，按作家存储。
 
@@ -265,16 +260,16 @@ tidy_zibuyu %>%
   count(word, sort = TRUE)
 ```
 
-看起来“人”在所有作品里都属于最常见的词。关注一下意思相当于“说”的词汇：《红楼梦》中，“道”和“說”都非常多（有部分“道”可能是道士的道，因此比例只会更接近1）；《三言》里就只有“道”排在前面，“說”只有其一半左右；《子不语》两部中只有“曰”上榜。这可能是由于文体（文言多用曰）及时代（说对道的替代需要一个过程）的差异。
+看起来“人”在所有作品里都属于最常见的词，以及意思相当于“说”的词汇（有部分“道”可能是道士的道）；《三言》里就只有“道”排在前面，“說”只有其一半左右；《子不语》两部中只有“曰”上榜。这可能是由于文体（文言多用曰）及时代（说对道的替代需要一个过程）的差异。
 
 现在，计算一下每个词在每位作家的作品中出现的频率，把数据框绑定到一起。我们可以使用 tidyr 中的 `spread` 和 `gather` 重新定形数据框，只留下绘图需要的点，以便对三个作品集进行比较。
 
-```{r frequency, dependson = c("tidy_hongloumeng", "tidy_sanyan", "tidy_zibuyu")}
+```{r frequency, dependson = c("tidy_mingqingxiaoshuo", "tidy_sanyan", "tidy_zibuyu")}
 library(tidyr)
 
 frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
                        mutate(tidy_sanyan, author = "冯梦龙"),
-                       mutate(tidy_hongloumeng, author = "Cao")) %>%
+                       mutate(tidy_mingqingxiaoshuo, author = "Various")) %>%
   #mutate(word = str_extract(word, "[a-z']+")) %>%
   mutate(word = str_extract(word, "[^a-z0-9']+")) %>%
   count(author, word) %>%
@@ -289,11 +284,11 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
 
 现在绘制图 \@ref(fig:plotcompare)。
 
-```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="冯梦龙、袁枚与曹雪芹的作品词频比较"}
+```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="冯梦龙、袁枚与四大名著的作品词频比较"}
 library(scales)
 
 # expect a warning about rows with missing values being removed
-ggplot(frequency, aes(x = proportion, y = `Cao`, color = abs(`Cao` - proportion))) +
+ggplot(frequency, aes(x = proportion, y = `Various`, color = abs(`Various` - proportion))) +
   geom_abline(color = "gray40", lty = 2) +
   geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
   geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5, family = "WenQuanYi Micro Hei") +
@@ -302,22 +297,22 @@ ggplot(frequency, aes(x = proportion, y = `Cao`, color = abs(`Cao` - proportion)
   scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
   facet_wrap(~author, ncol = 2) +
   theme(legend.position="none") +
-  labs(y = "曹雪芹", x = NULL) +
+  labs(y = "Various", x = NULL) +
   theme(text = element_text(family = "WenQuanYi Micro Hei"))
 ```
 
-靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在曹雪芹和冯梦龙的文本中，而“不”“見”“上”同时高频出现在曹雪芹和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在曹雪芹-冯梦龙一侧的图中，诸如“寳玉”“太太”“賈”这些词（全是人名和称谓）在曹雪芹文本中多见，而在冯梦龙文本中就不多，同时“員外”“郎”在冯梦龙文本中更多见而非曹雪芹文本。比较袁枚与曹雪芹，袁枚用词“某”较多而曹雪芹不用，曹雪芹用词“呢”较多而袁枚不用。
+靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在四大名著和冯梦龙的文本中，而“不”“見”“上”同时高频出现在四大名著和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在四大名著-冯梦龙一侧的图中，诸如“寳玉”“大聖”这些词（全是人名和称谓）在四大名著文本中多见，而在冯梦龙文本中就不多，同时“東坡”在冯梦龙文本中更多见而非四大名著文本。
 
-整体来看，注意到在图 \@ref(fig:plotcompare) 中曹雪芹-冯梦龙侧比曹雪芹-袁枚侧更接近过零点的斜线。同时注意曹雪芹-冯梦龙侧的词向更低频扩展更多；曹雪芹-袁枚侧在低频词处有片空白区域。这些特征说明曹雪芹与冯梦龙用词比曹雪芹与袁枚用词更为接近。还可以看到并非所有词在全部三个文本集中都能找到，曹雪芹-袁枚侧的数据点偏少。
+整体来看，注意到在图 \@ref(fig:plotcompare) 中四大名著-冯梦龙侧比四大名著-袁枚侧更接近过零点的斜线。同时注意四大名著-冯梦龙侧的词向更低频扩展更多；四大名著-袁枚侧在低频词处有片空白区域。这些特征说明四大名著与冯梦龙用词比四大名著与袁枚用词更为接近。还可以看到并非所有词在全部三个文本集中都能找到，四大名著-袁枚侧的数据点偏少。
 
-我们用相关度检验量化一下这些词频集的相似和不同的程度。曹雪芹与冯梦龙词频的相关度如何？曹雪芹与袁枚呢？
+我们用相关度检验量化一下这些词频集的相似和不同的程度。四大名著与冯梦龙词频的相关度如何？四大名著与袁枚呢？
 
 ```{r cor_test, dependson = "frequency"}
-cor.test(data = frequency[frequency$author == "冯梦龙",], ~ proportion + `Cao`)
-cor.test(data = frequency[frequency$author == "袁枚",], ~ proportion + `Cao`)
+cor.test(data = frequency[frequency$author == "冯梦龙",], ~ proportion + `Various`)
+cor.test(data = frequency[frequency$author == "袁枚",], ~ proportion + `Various`)
 ```
 
-与我们在图中所见一致，词频在曹雪芹和冯梦龙的小说中相关度要高于曹雪芹和袁枚。基本上，这个结论也符合主观的观感。
+与我们在图中所见一致，词频在四大名著和冯梦龙的小说中相关度要高于四大名著和袁枚的随笔中。基本上，这个结论也符合主观的观感。
 
 ## 小结
 

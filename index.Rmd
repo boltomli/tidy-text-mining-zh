@@ -28,6 +28,7 @@ lapply(c("dplyr", "tidytext", "stringr", "tidyr", "ggplot2", "gutenbergr",
          "janeaustenr", "jiebaR", "showtext", "methods", "scales", "ggraph", "igraph", "widyr", "topicmodels",
          "broom", "quanteda", "mallet", "coreNLP", "cleanNLP", "sentimentr", "wordcloud", "wordcloud2", "codetools", "purrr"),
        function(pkg) {if (system.file(package = pkg) == '') install.packages(pkg, dependencies = TRUE)})
+devtools::install_github("boltomli/mingqingxiaoshuor")
 ```
 
 # Welcome to Text Mining with R {-}
