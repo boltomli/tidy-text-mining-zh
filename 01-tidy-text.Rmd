@@ -172,7 +172,7 @@ To learn more about gutenbergr, check out the [package's tutorial at rOpenSci](h
 
 ## 用 tidy 处理中文大作 {#tidyworks-zh}
 
-笔者整理了一个类似 janeaustenr 的明清小说数据集 [@R-mqxsr]，我们可以从四大名著的文本开始。
+笔者整理了一个类似 janeaustenr 的明清小说数据集 [mqxsr](https://github.com/boltomli/mingqingxiaoshuor) [@R-mqxsr]，我们可以从四大名著的文本开始。
 
 ```{r mingqingxiaoshuo}
 library(mqxsr)
