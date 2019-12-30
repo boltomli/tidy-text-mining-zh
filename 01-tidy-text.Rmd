@@ -59,7 +59,7 @@ text_wb
 
 ```{r text_df, dependson = "text_wb"}
 library(dplyr)
-text_df <- data_frame(line = 1:4, text = text_wb)
+text_df <- tibble(line = 1:4, text = text_wb)
 text_df
 ```
 

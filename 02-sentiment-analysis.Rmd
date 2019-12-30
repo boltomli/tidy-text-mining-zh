@@ -206,12 +206,12 @@ bind_rows(afinn,
 为什么，比如说，NRC 词典的结果在情感上的倾向相比起来如此之高？我们粗略看看这些词典中正面与负面的词数。
 
 ```{r}
-get_sentiments("nrc") %>% 
+nrc %>%
      filter(sentiment %in% c("positive", 
-                             "negative")) %>% 
+                             "negative")) %>%
   count(sentiment)
 
-get_sentiments("bing") %>% 
+get_sentiments("bing") %>%
   count(sentiment)
 ```
 
@@ -249,7 +249,7 @@ bing_word_counts %>%
 图 \@ref(fig:pipetoplot) 让我们发现情感分析中的一个异常；词 miss 被记成负面，但在作品中多数时候是指年轻未婚的女士。如果这不符合我们的目的，我们可以用 `bind_rows()` 把这样的词加进自定义停止词列表。我们可以很方便地像这样应用各种策略。
 
 ```{r custom_stop_words, dependson = "wordcounts"}
-custom_stop_words <- bind_rows(data_frame(word = c("miss", "hung", "well", "master"),
+custom_stop_words <- bind_rows(tibble(word = c("miss", "hung", "well", "master"),
                                           lexicon = c("custom")),
                                stop_words)
 custom_stop_words
@@ -301,7 +301,7 @@ tidy_books %>%
 属于悲伤，而非高兴，因为有否定词的存在。R 包如 coreNLP [@R-coreNLP]、cleanNLP [@R-cleanNLP] 和 sentimentr [@R-sentimentr] 都属于这种情感分析算法。为此，我们需要把文本按句符号化，于是也需要为输出列取个新的名字。
 
 ```{r hongloumeng_en_sentences}
-hongloumeng_en_sentences <- data_frame(text = hongloumeng_en$text) %>%
+hongloumeng_en_sentences <- tibble(text = hongloumeng_en$text) %>%
   unnest_tokens(sentence, text, token = "sentences")
 hongloumeng_en_sentences$sentence[20]
 ```
