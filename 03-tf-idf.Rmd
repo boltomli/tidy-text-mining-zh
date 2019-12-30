@@ -8,9 +8,9 @@ library(jiebaR)
 library(ggplot2)
 library(showtext)
 showtext_auto(enable = TRUE)
-font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
+pdf()
 theme_zh <- theme_light() +
-  theme(text = element_text(family = "WenQuanYi Micro Hei"))
+  theme(text = element_text(family = "wqy-microhei"))
 theme_set(theme_zh)
 ```
 

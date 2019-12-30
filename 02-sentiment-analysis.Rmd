@@ -7,7 +7,7 @@ options(width = 100, dplyr.width = 100)
 library(jiebaR)
 library(showtext)
 showtext_auto(enable = TRUE)
-font_add("WenQuanYi Micro Hei", "data/wqy-microhei.ttc")
+pdf()
 library(ggplot2)
 theme_set(theme_light())
 ```
@@ -38,7 +38,7 @@ sentiments
 
 这三个词典全部基于一元组，即单独的词。这些词典包含了很多英语词，每个词都有正面/负面情感的分数，以及可能的情感类型如开心、愤怒、悲伤等。`nrc` 词典把词按二元（是/否）标注在各个类别中，如正面、负面、愤怒、期待、恶心、恐惧、开心、悲伤、惊讶和信任。`bing` 词典把词按二元归于正面和负面的类别。`AFINN` 词典给每个词分配 -5 到 5 之间的值，负值代表负面情感，正值代表正面情感。这些信息列在 `sentiments` 数据集的表格中，tidytext 提供了 `get_sentiments()` 函数以获取特定的情感词典，且不含其未使用的列。
 
-```{r}
+```{r, eval=FALSE}
 get_sentiments("afinn")
 get_sentiments("bing")
 get_sentiments("nrc")
@@ -90,8 +90,17 @@ tidy_books <- hongloumeng_en %>%
 
 现在文本已经是 tidy 格式，每行一个词，我们可以开始情感分析。首先，使用 NRC 词典和 `filter()` 得到开心的词。之后，用 `filter()` 得到上半部书的词，然后用 `inner_join()` 执行情感分析。上半部书里最常见表示开心的词有哪些？使用 dplyr 里的 `count()`。
 
+```{r eval=FALSE}
+nrc <- get_sentiments("nrc")
+```
+
+```{r echo=FALSE}
+load("data/nrc.rda")
+nrc
+```
+
 ```{r nrcjoy, dependson = "tidy_books_sentiment"}
-nrc_joy <- get_sentiments("nrc") %>% 
+nrc_joy <- nrc %>% 
   filter(sentiment == "joy")
 
 tidy_books %>%
@@ -151,18 +160,27 @@ Remember from above that the AFINN lexicon measures sentiment with a numeric sco
 
 依然使用整数除法（`%/%`）确定含有多行的较大段的文本，用同样的方式使用 `count()`、`spread()`和`mutate()` 算出每段文本的情感净值。
 
+```{r eval=FALSE}
+get_sentiments("afinn")
+```
+
+```{r echo=FALSE}
+load("data/afinn.rda")
+afinn
+```
+
 ```{r comparesentiment, dependson = "book_2"}
 afinn <- book_2 %>% 
-  inner_join(get_sentiments("afinn")) %>% 
+  inner_join(afinn) %>%
   group_by(index = linenumber %/% 100) %>% 
-  summarise(sentiment = sum(score)) %>% 
+  summarise(sentiment = sum(value)) %>%
   mutate(method = "AFINN")
 
 bing_and_nrc <- bind_rows(book_2 %>% 
                             inner_join(get_sentiments("bing")) %>%
                             mutate(method = "Bing et al."),
                           book_2 %>% 
-                            inner_join(get_sentiments("nrc") %>% 
+                            inner_join(nrc %>%
                                          filter(sentiment %in% c("positive", 
                                                                  "negative"))) %>%
                             mutate(method = "NRC")) %>%
@@ -254,7 +272,7 @@ hongloumeng %>%
   unnest_tokens(word, text) %>%
   count(word) %>%
   top_n(80) %>%
-  wordcloud2(fontFamily = "WenQuanYi Micro Hei")
+  wordcloud2(fontFamily = "wqy-microhei")
 ```
 
 使用 R base 的 wordcloud 包 [@R-wordcloud] 包含了 `comparison.cloud()`，可以用 reshape2 的 `acast()` 把数据框转变为矩阵。用内部联接标记情感分析正面和负面的词，然后找到最常见的正面和负面词。在把数据发给 `comparison.cloud()` 之前，都可以用联接、管道和 dplyr，因为数据为 tidy 格式。

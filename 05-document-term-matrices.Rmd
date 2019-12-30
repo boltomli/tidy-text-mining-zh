@@ -309,7 +309,8 @@ Each of the items in the `corpus` list column is a `WebCorpus` object, which is 
 
 ```{r stock_tokens, dependson = "stock_articles"}
 stock_tokens <- stock_articles %>%
-  unnest(map(corpus, tidy)) %>%
+  mutate(corpus = map(corpus, tidy)) %>%
+  unnest(cols = (corpus)) %>%
   unnest_tokens(word, text) %>%
   select(company, datetimestamp, word, id, heading)
 
@@ -318,7 +319,7 @@ stock_tokens
 
 Here we see some of each article's metadata alongside the words used. We could use tf-idf to determine which words were most specific to each stock symbol.
 
-```{r}
+```{r stocktfidfdata, dependson="stock_tokens"}
 library(stringr)
 
 stock_tf_idf <- stock_tokens %>%
@@ -330,7 +331,7 @@ stock_tf_idf <- stock_tokens %>%
 
 The top terms for each are visualized in Figure \@ref(fig:stocktfidf). As we'd expect, the company's name and symbol are typically included, but so are several of their product offerings and executives, as well as companies they are making deals with (such as Disney with Netflix).
 
-```{r stocktfidf, dependson = "stock_tf_idf", echo = FALSE, fig.cap = "The 8 words with the highest tf-idf in recent articles specific to each company", fig.height = 8, fig.width = 8}
+```{r stocktfidf, dependson = "stocktfidfdata", echo = FALSE, fig.cap = "The 8 words with the highest tf-idf in recent articles specific to each company", fig.height = 8, fig.width = 8}
 stock_tf_idf %>%
   group_by(company) %>%
   top_n(8, tf_idf) %>%
@@ -346,19 +347,20 @@ stock_tf_idf %>%
 
 If we were interested in using recent news to analyze the market and make investment decisions, we'd likely want to use sentiment analysis to determine whether the news coverage was positive or negative. Before we run such an analysis, we should look at what words would contribute the most to positive and negative sentiments, as was shown in Chapter \@ref(most-positive-negative). For example, we could examine this within the AFINN lexicon (Figure \@ref(fig:stockafinn)).
 
-```{r stockafinn, dependson = "stock_articles", fig.cap = "The words with the largest contribution to sentiment scores in recent financial articles, according to the AFINN dictionary. The 'contribution' is the product of the word and the sentiment score."}
+```{r stockafinn, dependson = "stock_articles", fig.cap = "The words with the largest contribution to sentiment values in recent financial articles, according to the AFINN dictionary. The 'contribution' is the product of the word and the sentiment value."}
+load("data/afinn.rda")
 stock_tokens %>%
   anti_join(stop_words, by = "word") %>%
   count(word, id, sort = TRUE) %>%
-  inner_join(get_sentiments("afinn"), by = "word") %>%
+  inner_join(afinn, by = "word") %>%
   group_by(word) %>%
-  summarize(contribution = sum(n * score)) %>%
+  summarize(contribution = sum(n * value)) %>%
   top_n(12, abs(contribution)) %>%
   mutate(word = reorder(word, contribution)) %>%
   ggplot(aes(word, contribution)) +
   geom_col() +
   coord_flip() +
-  labs(y = "Frequency of word * AFINN score")
+  labs(y = "Frequency of word * AFINN value")
 ```
 
 In the context of these financial articles, there are a few big red flags here. The words "share" and "shares" are counted as positive verbs by the AFINN lexicon ("Alice will **share** her cake with Bob"), but they're actually neutral nouns ("The stock price is $12 per **share**") that could just as easily be in a positive sentence as a negative one. The word "fool" is even more deceptive: it refers to Motley Fool, a financial services company. In short, we can see that the AFINN sentiment lexicon is entirely unsuited to the context of financial data (as are the NRC and Bing lexicons).
@@ -368,9 +370,10 @@ Instead, we introduce another sentiment lexicon: the Loughran and McDonald dicti
 The Loughran data divides words into six sentiments: "positive", "negative", "litigious", "uncertain", "constraining", and "superfluous". We could start by examining the most common words belonging to each sentiment within this text dataset.
 
 ```{r stockloughransentiments, fig.cap = "The most common words in the financial news articles associated with each of the six sentiments in the Loughran and McDonald lexicon"}
+load("data/loughran.rda")
 stock_tokens %>%
   count(word) %>%
-  inner_join(get_sentiments("loughran"), by = "word") %>%
+  inner_join(loughran, by = "word") %>%
   group_by(sentiment) %>%
   top_n(5, n) %>%
   ungroup() %>%
@@ -388,7 +391,7 @@ Now that we know we can trust the dictionary to approximate the articles' sentim
 
 ```{r}
 stock_sentiment_count <- stock_tokens %>%
-  inner_join(get_sentiments("loughran"), by = "word") %>%
+  inner_join(loughran, by = "word") %>%
   count(sentiment, company) %>%
   spread(sentiment, n, fill = 0)
 
@@ -399,13 +402,13 @@ It might be interesting to examine which company has the most news with "litigio
 
 ```{r stockpositivity, fig.cap = "\"Positivity\" of the news coverage around each stock in January 2017, calculated as (positive - negative) / (positive + negative), based on uses of positive and negative words in 20 recent news articles about each company"}
 stock_sentiment_count %>%
-  mutate(score = (positive - negative) / (positive + negative)) %>%
-  mutate(company = reorder(company, score)) %>%
-  ggplot(aes(company, score, fill = score > 0)) +
+  mutate(value = (positive - negative) / (positive + negative)) %>%
+  mutate(company = reorder(company, value)) %>%
+  ggplot(aes(company, value, fill = value > 0)) +
   geom_col(show.legend = FALSE) +
   coord_flip() +
   labs(x = "Company",
-       y = "Positivity score among 20 recent news articles")
+       y = "Positivity value among 20 recent news articles")
 ```
 
 Based on this analysis, we'd say that in January 2017 most of the coverage of Yahoo and Twitter was strongly negative, while coverage of Google and Amazon was the most positive. A glance at current financial headlines suggest that it's on the right track. If you were interested in further analysis, you could use one of R's many quantitative finance packages to compare these articles to recent stock prices and other metrics.
