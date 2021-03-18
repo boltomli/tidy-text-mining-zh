@@ -70,7 +70,7 @@ bigram_counts <- bigrams_filtered %>%
 bigram_counts
 ```
 
-We can see that names (whether first and last or with a salutation) are the most common pairs in Jane Austen books.
+We can see that names (whether first and last or with a salutation) are the most common pairs.
 
 In other analyses, we may want to work with the recombined words. tidyr's `unite()` function is the inverse of `separate()`, and lets us recombine the columns into one. Thus, "separate/filter/count/unite" let us find the most common bigrams not containing stop-words.
 
@@ -113,7 +113,7 @@ bigram_tf_idf <- bigrams_united %>%
 bigram_tf_idf
 ```
 
-```{r bigramtfidf, dependson = "bigram_tf_idf", echo = FALSE, fig.width=9, fig.height=9, fig.cap = "The 12 bigrams with the highest tf-idf from each Jane Austen novel"}
+```{r bigramtfidf, dependson = "bigram_tf_idf", echo = FALSE, fig.width=9, fig.height=9, fig.cap = "The 12 bigrams with the highest tf-idf from each half of Hongloumeng"}
 library(ggplot2)
 
 bigram_tf_idf %>%
@@ -245,7 +245,7 @@ igraph has plotting functions built in, but they're not what the package is desi
 
 We can convert an igraph object into a ggraph with the `ggraph` function, after which we add layers to it, much like layers are added in ggplot2. For example, for a basic graph we need to add three layers: nodes, edges, and text.
 
-```{r bigramgraph, dependson = "bigram_graph", fig.width = 12, fig.height = 12, fig.cap = "Common bigrams in Jane Austen's novels, showing those that occurred more than 20 times and where neither word was a stop word"}
+```{r bigramgraph, dependson = "bigram_graph", fig.width = 12, fig.height = 12, fig.cap = "Common bigrams in Hongloumeng, showing those that occurred more than 25 times and where neither word was a stop word"}
 library(ggraph)
 set.seed(2017)
 
@@ -264,7 +264,7 @@ We conclude with a few polishing operations to make a better looking graph (Figu
 * We tinker with the options to the node layer to make the nodes more attractive (larger, blue points)
 * We add a theme that's useful for plotting networks, `theme_void()`
 
-```{r bigramggraphausten2, dependson = "bigram_graph", fig.width = 12, fig.height = 12, fig.cap = "Common bigrams in Jane Austen's novels, with some polishing"}
+```{r bigramggraphausten2, dependson = "bigram_graph", fig.width = 12, fig.height = 12, fig.cap = "Common bigrams in Hongloumeng, with some polishing"}
 set.seed(2016)
 
 a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
