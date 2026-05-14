@@ -6,3 +6,6 @@ _book
 _bookdown_files
 packages.bib
 .DS_Store
+output/
+.venv/
+reanalysis-hongloumeng.R
