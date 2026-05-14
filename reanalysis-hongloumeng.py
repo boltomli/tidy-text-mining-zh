@@ -402,10 +402,30 @@ def zipf_law_entities_only(df: pd.DataFrame):
         print("警告: 未匹配到任何人物实体")
         return
 
+    # === 合并同人异名 ===
+    # 中文里人物常以名代全称：宝玉=贾宝玉、凤姐=王熙凤、黛玉=林黛玉
+    alias_to_canonical = {
+        "黛玉": "林黛玉",
+        "寶釵": "薛寶釵",
+        "元春": "賈元春",
+        "探春": "賈探春",
+        "湘雲": "史湘雲",
+        "迎春": "賈迎春",
+        "惜春": "賈惜春",
+        "鳳姐": "王熙鳳",
+        "熙鳳": "王熙鳳",
+        "寶玉": "賈寶玉",
+    }
+    merged = Counter()
+    for name, cnt in entity_counts.items():
+        canonical = alias_to_canonical.get(name, name)
+        merged[canonical] += cnt
+    entity_counts = merged
+
     total_entities = sum(entity_counts.values())
-    print(f"实体总出现次数: {total_entities}")
+    print(f"实体（已合并同人异名）总出现次数: {total_entities}")
     print(f"唯一实体数: {len(entity_counts)}")
-    print("\nTop 15 实体:")
+    print("\nTop 15 实体（合并后）:")
     for i, (char, cnt) in enumerate(entity_counts.most_common(15), 1):
         print(f"  {i:3d}. {char}: {cnt}次 ({cnt / total_entities * 100:.1f}%)")
 
@@ -416,7 +436,7 @@ def zipf_law_entities_only(df: pd.DataFrame):
     total = sum(freqs)
     term_freqs = freqs / total
 
-    # 拟合齐夫定律（排名 3~200 段，跳过第一名抖动）
+    # 拟合齐夫定律（排名 3~200 段，跳过前几名抖动）
     mask = (ranks > 2) & (ranks < min(200, len(ranks)))
     log_rank = np.log10(ranks[mask])
     log_tf = np.log10(term_freqs[mask])
@@ -448,16 +468,20 @@ def zipf_law_entities_only(df: pd.DataFrame):
     ax1.legend(fontsize=9)
     ax1.grid(True, alpha=0.3)
 
-    # 右图：Top 15 实体柱状图
+    # 右图：Top 15 实体柱状图（合并后）
     ax2 = axes[1]
     top15 = entity_counts.most_common(15)
     names = [c for c, _ in top15[::-1]]
     counts = [c for _, c in top15[::-1]]
-    ax2.barh(names, counts, color="mediumseagreen", height=0.7)
+    colors = [
+        "#e74c3c" if i == len(counts) - 1 else "mediumseagreen"
+        for i in range(len(counts))
+    ]
+    ax2.barh(names, counts, color=colors, height=0.7)
     ax2.set_xlabel("出现次数")
-    ax2.set_title("Top 15 人物实体频次", fontsize=13)
+    ax2.set_title("Top 15 人物（同人异名已合并）", fontsize=13)
     for i, v in enumerate(counts):
-        ax2.text(v + 10, i, str(v), va="center", fontsize=8)
+        ax2.text(v + max(counts) * 0.01, i, str(v), va="center", fontsize=8)
 
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/02b_zipf_entities.png", dpi=120, bbox_inches="tight")
