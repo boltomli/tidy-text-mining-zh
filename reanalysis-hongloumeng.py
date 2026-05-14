@@ -112,7 +112,19 @@ EXTRA_STOP_WORDS = {
 ALL_STOP_WORDS = STOP_WORDS | EXTRA_STOP_WORDS
 
 # 标点符号（用于 bigram 过滤）
-PUNCTUATION = set("，。、！？：；（）【】《》「」『』〔〕〈〉“”\"'‘’,．　：")
+PUNCTUATION = set("，。、！？：；（）【】《》「」『』〔〕〈〉“”'‘’．　：·…—～·、")
+
+# 过滤非中文字符的正则：只保留含汉字的 token
+CHINESE_PATTERN = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
+
+# WordCloud 中文字体路径
+CN_FONT_PATH = "C:\\Windows\\Fonts\\simhei.ttf"
+import os as _os
+
+if not _os.path.exists(CN_FONT_PATH):
+    CN_FONT_PATH = "C:\\Windows\\Fonts\\msyh.ttc"
+if not _os.path.exists(CN_FONT_PATH):
+    CN_FONT_PATH = None
 
 
 # ============================================================
@@ -133,12 +145,20 @@ def load_data() -> pd.DataFrame:
 # 2. 中文分词
 # ============================================================
 def segment_text(
-    text: str, stop_words: set = None, remove_punct: bool = True
+    text: str,
+    stop_words: set = None,
+    remove_punct: bool = True,
+    keep_chinese_only: bool = True,
 ) -> List[str]:
-    """使用 jieba 分词，返回词列表"""
+    """使用 jieba 分词，返回词列表
+
+    keep_chinese_only: 只保留含中文字符的 token，过滤英文、纯数字、符号等
+    """
     words = jieba.lcut(text)
     if remove_punct:
         words = [w for w in words if w not in PUNCTUATION]
+    if keep_chinese_only:
+        words = [w for w in words if CHINESE_PATTERN.search(w)]
     if stop_words:
         words = [w for w in words if w not in stop_words]
     return words
@@ -344,13 +364,107 @@ def zipf_law_analysis(chapter_words: pd.DataFrame):
     plt.yscale("log")
     plt.xlabel("排名 (对数)")
     plt.ylabel("词频 (对数)")
-    plt.title("《红楼梦》中的齐夫定律")
+    plt.title("《红楼梦》中的齐夫定律（所有词）", fontsize=14)
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/02_zipf_law.png", dpi=100)
     plt.close()
     print("[图] 齐夫定律 → output/02_zipf_law.png")
+
+    return freq_by_rank
+
+
+# ============================================================
+# 5b. 齐夫定律 — 仅实体版（人物 + 地点等专有名词）
+# ============================================================
+def zipf_law_entities_only(df: pd.DataFrame):
+    """仅统计人物等实体的齐夫定律"""
+    print("\n=== 齐夫定律（仅实体） ===")
+
+    # 用人物名单直接匹配
+    char_set = set(MAIN_CHARACTERS)
+    entity_counts = Counter()
+
+    for text in df["text"]:
+        words = jieba.lcut(text)
+        for w in words:
+            # 跳过标点和纯英文/数字
+            if not CHINESE_PATTERN.search(w):
+                continue
+            # 检查是否在已知人物名单或为专有名词（以贾/林/薛/史/王/刘等姓氏开头）
+            if w in char_set:
+                entity_counts[w] += 1
+            # jieba 词性标注常把专名标为 nr (人名), ns (地名)
+            # 此处依赖预定义列表，更准确
+
+    if not entity_counts:
+        print("警告: 未匹配到任何人物实体")
+        return
+
+    total_entities = sum(entity_counts.values())
+    print(f"实体总出现次数: {total_entities}")
+    print(f"唯一实体数: {len(entity_counts)}")
+    print("\nTop 15 实体:")
+    for i, (char, cnt) in enumerate(entity_counts.most_common(15), 1):
+        print(f"  {i:3d}. {char}: {cnt}次 ({cnt / total_entities * 100:.1f}%)")
+
+    # 计算排名和频率
+    sorted_entities = entity_counts.most_common()
+    ranks = np.arange(1, len(sorted_entities) + 1)
+    freqs = np.array([c for _, c in sorted_entities])
+    total = sum(freqs)
+    term_freqs = freqs / total
+
+    # 拟合齐夫定律（排名 3~200 段，跳过第一名抖动）
+    mask = (ranks > 2) & (ranks < min(200, len(ranks)))
+    log_rank = np.log10(ranks[mask])
+    log_tf = np.log10(term_freqs[mask])
+    slope, intercept = np.polyfit(log_rank, log_tf, 1)
+    print(f"\n实体齐夫定律拟合斜率: {slope:.3f} (理论值 -1)")
+    print(f"截距: {intercept:.3f}")
+
+    # 可视化
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    # 左图：齐夫定律曲线
+    ax1 = axes[0]
+    ax1.plot(ranks, term_freqs, "o-", color="coral", markersize=3, linewidth=1)
+    rank_line = np.logspace(np.log10(3), np.log10(min(200, len(ranks))), 100)
+    tf_line = 10 ** (intercept + slope * np.log10(rank_line))
+    ax1.plot(
+        rank_line,
+        tf_line,
+        "k--",
+        alpha=0.6,
+        linewidth=1.5,
+        label=f"拟合: y={intercept:.2f}x^{slope:.2f}",
+    )
+    ax1.set_xscale("log")
+    ax1.set_yscale("log")
+    ax1.set_xlabel("排名 (对数)")
+    ax1.set_ylabel("词频 (对数)")
+    ax1.set_title("齐夫定律 — 仅实体（人物）", fontsize=13)
+    ax1.legend(fontsize=9)
+    ax1.grid(True, alpha=0.3)
+
+    # 右图：Top 15 实体柱状图
+    ax2 = axes[1]
+    top15 = entity_counts.most_common(15)
+    names = [c for c, _ in top15[::-1]]
+    counts = [c for _, c in top15[::-1]]
+    ax2.barh(names, counts, color="mediumseagreen", height=0.7)
+    ax2.set_xlabel("出现次数")
+    ax2.set_title("Top 15 人物实体频次", fontsize=13)
+    for i, v in enumerate(counts):
+        ax2.text(v + 10, i, str(v), va="center", fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(f"{OUTPUT_DIR}/02b_zipf_entities.png", dpi=120, bbox_inches="tight")
+    plt.close()
+    print("[图] 齐夫定律（仅实体） → output/02b_zipf_entities.png")
+
+    return entity_counts
 
 
 # ============================================================
@@ -386,26 +500,30 @@ def tf_idf_analysis(chapter_words: pd.DataFrame):
         subset = top_per_chapter[top_per_chapter["chapter"] == ch]
         print(f"  {ch}: {', '.join(subset['word'].tolist())}")
 
-    # 可视化
-    top_per_chapter["word"] = pd.Categorical(
-        top_per_chapter["word"],
-        categories=top_per_chapter.sort_values("tf_idf")["word"].unique(),
-        ordered=True,
-    )
+    # 可视化 - 逐个绘图避免拥挤
+    chapters_sorted = sorted(top_per_chapter["chapter"].unique())
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+    axes = axes.flatten()
 
-    g = sns.FacetGrid(
-        top_per_chapter, col="chapter", col_wrap=2, sharex=False, sharey=False, height=4
+    for idx, ch in enumerate(chapters_sorted):
+        ax = axes[idx]
+        subset = top_per_chapter[top_per_chapter["chapter"] == ch]
+        subset = subset.sort_values("tf_idf", ascending=True)
+        ax.barh(subset["word"], subset["tf_idf"], color="steelblue", height=0.7)
+        ax.set_title(ch, fontsize=12, fontweight="bold")
+        ax.set_xlabel("tf-idf", fontsize=9)
+        ax.tick_params(axis="y", labelsize=10)
+        ax.tick_params(axis="x", labelsize=8)
+
+    # 隐藏多余的子图
+    for idx in range(len(chapters_sorted), len(axes)):
+        axes[idx].set_visible(False)
+
+    fig.suptitle(
+        "《红楼梦》各部分 tf-idf 最高的词", y=1.02, fontsize=14, fontweight="bold"
     )
-    g.map_dataframe(
-        sns.barplot, x="word", y="tf_idf", hue="chapter", dodge=False, legend=False
-    )
-    for ax in g.axes.flat:
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
-        ax.set_xlabel("")
-    g.set_titles(col_template="{col_name}")
-    g.fig.suptitle("《红楼梦》各部分 tf-idf 最高的词", y=1.02, fontsize=14)
-    g.tight_layout()
-    plt.savefig(f"{OUTPUT_DIR}/03_tfidf.png", dpi=100)
+    plt.tight_layout()
+    plt.savefig(f"{OUTPUT_DIR}/03_tfidf.png", dpi=120, bbox_inches="tight")
     plt.close()
     print("[图] tf-idf → output/03_tfidf.png")
 
@@ -418,23 +536,24 @@ def tf_idf_analysis(chapter_words: pd.DataFrame):
 def generate_wordcloud(df: pd.DataFrame):
     """生成全书词云"""
     print("\n=== 词云 ===")
-    # 分词（过滤停止词）
+    # 分词（过滤停止词，只保留中文）
     all_words = []
     for text in df["text"]:
-        all_words.extend(segment_text(text, ALL_STOP_WORDS))
+        all_words.extend(segment_text(text, ALL_STOP_WORDS, keep_chinese_only=True))
 
     word_counts = Counter(all_words)
     # 过滤出现 < 50 的词
-    wordcloud_data = {w: c for w, c in word_counts.items() if c >= 50}
+    wordcloud_data = {w: c for w, c in word_counts.items() if c >= 100}
 
     print(f"词云包含的词数: {len(wordcloud_data)}")
+    print(f"字体路径: {CN_FONT_PATH}")
 
     wc = WordCloud(
-        font_path=None,
-        width=800,
+        font_path=CN_FONT_PATH,
+        width=900,
         height=600,
         background_color="white",
-        max_words=100,
+        max_words=120,
         collocations=False,
     ).generate_from_frequencies(wordcloud_data)
 
@@ -896,6 +1015,9 @@ def main():
 
     # 6. 齐夫定律
     zipf_law_analysis(chapter_words)
+
+    # 6b. 齐夫定律（仅人物实体）
+    zipf_law_entities_only(df)
 
     # 7. tf-idf
     tf_idf_analysis(chapter_words)
