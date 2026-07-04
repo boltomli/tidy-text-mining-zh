@@ -64,9 +64,6 @@ format:
 
 execute:
   engine: knitr
-  # R 未装齐重型包时先关执行，只验证书籍结构/配置/交叉引用/callout；
-  # R 包装好后改回 true（或删除此项）以生成图表。
-  enabled: false
   cache: true
   warning: false
   message: false

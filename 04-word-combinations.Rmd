@@ -237,6 +237,7 @@ bigram_counts
 # filter for only relatively common combinations
 bigram_graph <- bigram_counts %>%
   filter(n > 25) %>%
+  drop_na(word1, word2) %>%
   graph_from_data_frame()
 bigram_graph
 ```
