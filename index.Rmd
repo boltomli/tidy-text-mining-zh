@@ -1,12 +1,11 @@
+<!-- 包安装已移至 install.R（一次性运行：Rscript install.R）。渲染时不再触发安装。 -->
 ```{r setup, include=FALSE}
-# 包安装已移至 install.R（一次性运行：Rscript install.R）。
-# 渲染时不再触发安装，避免每次 render 都联网/重装。
 options(
   htmltools.dir.version = FALSE, formatR.indent = 2, width = 55, digits = 4
 )
 ```
 
-# Welcome to Text Mining with R {-}
+# Welcome to Text Mining with R {.unnumbered}
 
 <img src="images/cover.png" width="350" height="460" alt="Cover image" />
 
@@ -19,7 +18,7 @@ The book is being adapted by Song Li to work on Chinese text, which requires ext
 
 敬请查看中文网站[Chinese website](https://text-mining-with-r-a-tidy-approach.netlify.com/)及源码[Github repo](https://github.com/boltomli/tidy-text-mining-zh)。未完成章节将被暂时移除或保持英文原貌。
 
-# Preface {-}
+# Preface {.unnumbered}
 
 If you work in analytics or data science, like we do, you are familiar with the fact that data is being generated all the time at ever faster rates. (You may even be a little weary of people pontificating about this fact.) Analysts are often trained to handle tabular or rectangular data that is mostly numeric, but much of the data proliferating today is unstructured and text-heavy. Many of us who work in analytical fields are not trained in even simple interpretation of natural language.
 
@@ -27,7 +26,7 @@ We developed the [tidytext](https://github.com/juliasilge/tidytext) [@R-tidytext
 
 This book serves as an introduction of text mining using the tidytext package and other tidy tools in R. The functions provided by the tidytext package are relatively simple; what is important are the possible applications. Thus, this book provides compelling examples of real text mining problems.
 
-## Outline {-}
+## Outline {.unnumbered}
 
 We start by introducing the tidy text format, and some of the ways dplyr, tidyr, and tidytext allow informative analyses of this structure.
 
@@ -47,7 +46,7 @@ We conclude with several case studies that bring together multiple tidy text min
 * **Chapter @sec-nasa** explores metadata from over 32,000 NASA datasets (available in JSON) by looking at how keywords from the datasets are connected to title and description fields.
 * **Chapter @sec-usenet** analyzes a dataset of Usenet messages from a diverse set of newsgroups (focused on topics like politics, hockey, technology, atheism, and more) to understand patterns across the groups.
 
-## Topics this book does not cover {-}
+## Topics this book does not cover {.unnumbered}
 
 This book serves as an introduction to the tidy text mining framework along with a collection of examples, but it is far from a complete exploration of natural language processing. The [CRAN Task View on Natural Language Processing](https://cran.r-project.org/web/views/NaturalLanguageProcessing.html) provides details on other ways to use R for computational linguistics. There are several areas that you may want to explore in more detail according to your needs.
 
@@ -56,7 +55,7 @@ This book serves as an introduction to the tidy text mining framework along with
 * **More complex tokenization:** The tidytext package trusts the tokenizers package [@R-tokenizers] to perform tokenization, which itself wraps a variety of tokenizers with a consistent interface, but many others exist for specific applications.
 * **Languages other than English:** Some of our users have had success applying tidytext to their text mining needs for languages other than English, but we don't cover any such examples in this book.
 
-## About this book {-}
+## About this book {.unnumbered}
 
 This book is focused on practical software examples and data explorations. There are few equations, but a great deal of code. We especially focus on generating real insights from the literature, news, and social media that we analyze.
 
@@ -64,11 +63,11 @@ We don't assume any previous knowledge of text mining. Professional linguists an
 
 We do assume that the reader is at least slightly familiar with dplyr, ggplot2, and the `%>%` "pipe" operator in R, and is interested in applying these tools to text data. For users who don't have this background, we recommend books such as [R for Data Science](http://r4ds.had.co.nz/). We believe that with a basic background and interest in tidy data, even a user early in their R career can understand and apply our examples.
 
-## Using code examples {-}
+## Using code examples {.unnumbered}
 
 While we show the code behind the vast majority of the analyses, in the interest of space we sometimes choose not to show the code generating a particular visualization if we've already provided the code for several similar graphs. We trust the reader can learn from and build on our examples, and the code used to generate the book can be found in our [public GitHub repository](https://github.com/dgrtwo/tidy-text-mining).
 
-## Acknowledgements {-}
+## Acknowledgements {.unnumbered}
 
 We are so thankful for the contributions, help, and perspectives of people who have moved us forward in this project. There are several people and organizations we would like to thank in particular. 
 
