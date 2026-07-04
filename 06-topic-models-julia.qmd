@@ -1,0 +1,162 @@
+---
+engine: jupyter
+title: "Julia 实现：主题模型"
+---
+
+# Julia 实现：主题模型 {#sec-topicmodeling-julia}
+
+本章用 Julia 重现第 \@ref(sec-topicmodeling) 章的"图书馆大捣乱"例子。Julia 端用 **TextAnalysis.jl** 的 `lda()` 函数（原生 LDA 实现），纯 Julia FMM 分词，**CairoMakie.jl** 绘图。
+
+> TextAnalysis.jl 的 `lda` 返回 `(beta, gamma)`，其中 beta 是主题×词概率矩阵，gamma 是文档×主题概率矩阵。与 R `tidy(lda, matrix=...)` 的 tidy 格式不同，需要手动转换为 DataFrame。
+
+## 准备数据
+
+从 parquet 读取六部小说，分词，按回分成独立文档。
+
+```{julia}
+include("data/jieba_fmm.jl")
+using DataFrames, Parquet2, TextAnalysis, StatsBase
+using CairoMakie
+CairoMakie.activate!()
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+
+dict = load_dict("data/jieba_dict.txt")
+stopwords = load_stopwords("data/stop_word_zh.utf8")
+
+books = DataFrame(Parquet2.Dataset("data/common/books.parquet"))
+println("书名: ", sort(unique(books.title)))
+
+# 分词 + 移除停止词
+function segment_clean(text, dict, stopwords)
+    ismissing(text) && return String[]
+    return [w for w in fmm_segment(text, dict) if !isempty(strip(w)) && !(strip(w) in stopwords)]
+end
+
+books.words = segment_clean.(books.text, Ref(dict), Ref(stopwords))
+```
+
+按回分文档（等价于 R 的 `cumsum(str_detect(...))`）：
+
+```{julia}
+chapter_re = r"^第[零一二三四五六七八九十百 ]+回"
+
+doc_names = String[]
+doc_words = Vector{String}[]
+
+for sub in groupby(books, :title)
+    title = sub.title[1]
+    chapter_num = 0
+    for row in eachrow(sub)
+        text = coalesce(row.text, "")
+        if occursin(chapter_re, text)
+            chapter_num += 1
+        end
+        if chapter_num > 0
+            push!(doc_names, "$(title)_$(chapter_num)")
+            push!(doc_words, row.words)
+        end
+    end
+end
+
+println("文档数: ", length(doc_names))
+println("示例: ", doc_names[1], " => ", doc_words[1][1:min(10,end)])
+```
+
+## 构建 DTM 并运行 LDA
+
+```{julia}
+# 用 TextAnalysis 的 StringDocument + Corpus 构建 DTM
+docs = [StringDocument(join(ws, " ")) for ws in doc_words]
+crps = Corpus(docs)
+update_lexicon!(crps)
+dtm = DocumentTermMatrix(crps)
+println("DTM: ", size(dtm.dtm), ", 词汇表: ", length(crps.lexicon))
+
+# LDA k=6（等价于 R LDA(chapters_dtm, k=6, seed=1234)）
+# lda 返回 (ϕ=beta: ntopics×nwords, θ=gamma: ntopics×ndocs)
+beta_matrix, gamma_matrix = lda(dtm, 6, 30, 0.1, 0.1; showprogress = false)
+println("beta: ", size(beta_matrix), ", gamma: ", size(gamma_matrix))
+```
+
+## 词-主题概率（beta）
+
+```{julia}
+# 归一化为概率
+beta_norm = beta_matrix ./ sum(beta_matrix, dims = 2)
+lexicon_list = collect(keys(crps.lexicon))
+
+# 每个主题 top 5 词
+for t in 1:6
+    top5 = sortperm(beta_norm[t, :], rev = true)[1:5]
+    words = [lexicon_list[i] for i in top5]
+    println("主题$t: ", join(words, ", "))
+end
+```
+
+各主题最高词可视化（等价于图 \@ref(fig-toptermsplot)）：
+
+```{julia}
+#| label: fig-toptermsplot-jl
+#| fig-cap: "每个主题中最常见的术语（Julia）"
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+
+fig = Figure(size = (700, 800))
+for t in 1:6
+    top5 = sortperm(beta_norm[t, :], rev = true)[1:5]
+    words = [lexicon_list[i] for i in top5]
+    vals = beta_norm[t, top5]
+    # sort ascending for barh display
+    perm = sortperm(vals)
+    ax = Axis(fig[((t-1)÷2)+1, ((t-1)%2)+1]; title = "主题$t", xlabel = "beta",
+              yticks = (collect(1:5), words[perm]))
+    barplot!(ax, collect(1:5), collect(vals[perm]); direction = :x)
+end
+fig
+```
+
+## 文档-主题概率（gamma）
+
+```{julia}
+# 拆分文档名
+doc_info = DataFrame(document = doc_names)
+doc_info.title = [join(split(n, "_")[1:end-1], "_") for n in doc_names]
+doc_info.chapter = [parse(Int, split(n, "_")[end]) for n in doc_names]
+
+# gamma 是 ntopics×ndocs，转置为 ndocs×ntopics
+gamma_df = DataFrame(Matrix(gamma_matrix'), ["主题$i" for i in 1:6])
+gamma_df = hcat(doc_info, gamma_df)
+first(gamma_df, 5)
+```
+
+每本书在各主题上的 gamma 分布（等价于图 \@ref(fig-chaptersldagamma)）：
+
+```{julia}
+#| label: fig-chaptersldagamma-jl
+#| fig-cap: "每本书中每章的 gamma 概率（Julia）"
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+
+titles = sort(unique(gamma_df.title))
+fig = Figure(size = (800, 800))
+for (i, title) in enumerate(titles)
+    sub = filter(:title => ==(title), gamma_df)
+    ax = Axis(fig[((i-1)÷2)+1, ((i-1)%2)+1]; title = title, xlabel = "章", ylabel = "gamma")
+    for t in 1:6
+        scatter!(ax, sub.chapter, sub[:, "主题$t"]; alpha = 0.5, markersize = 4,
+                 label = "主题$t")
+    end
+end
+fig
+```
+
+## R vs Julia 对比
+
+| 任务 | R | Julia |
+|---|---|---|
+| 分词 | jiebaR `worker()` | 纯 Julia FMM `fmm_segment()` |
+| DTM 构建 | `cast_dtm()` | `DocumentTermMatrix(Corpus)` |
+| LDA | `topicmodels::LDA()` | `TextAnalysis.lda(dtm, k, ...)` |
+| beta 提取 | `tidy(lda, matrix="beta")` | `beta_matrix` 归一化 |
+| gamma 提取 | `tidy(lda, matrix="gamma")` | `gamma_matrix` |
+| 绘图 | ggplot2 `facet_wrap()` | CairoMakie subplots |
+
+TextAnalysis.jl 的 LDA 使用Collapsed Gibbs Sampling，与 R topicmodels 的 VEM 算法不同，超参数（alpha, beta）也需手动指定。结果不会完全一致，但主题-书的对应关系应类似。FMM 分词精度较低也会影响 LDA 结果，未登录词被拆成单字会增加噪声。

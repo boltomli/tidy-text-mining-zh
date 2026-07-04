@@ -1,0 +1,163 @@
+---
+engine: jupyter
+title: "Python 实现：主题模型"
+---
+
+# Python 实现：主题模型 {#sec-topicmodeling-python}
+
+本章用 Python 重现第 \@ref(sec-topicmodeling) 章的"图书馆大捣乱"例子：把六部明清小说按章撕碎后用 LDA 无监督聚类，看能否恢复原书分组。Python 端用 **scikit-learn** 的 `LatentDirichletAllocation`（原生 LDA 实现），**jieba** 分词，**matplotlib** 绘图。
+
+> AssociatedPress 数据集是 R `topicmodels` 包内置的，Python 端无直接等价物，此处仅做中文小说示例。sklearn 的 LDA 与 R `topicmodels::LDA` 算法细节（如变分推断 vs VEM）略有差异，结果不会完全一致。
+
+## 准备数据
+
+从 parquet 读取六部小说，分词，按回分成独立文档。
+
+```{python}
+import pandas as pd
+import jieba
+import re
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+books = pd.read_parquet("data/common/books.parquet")
+titles = sorted(books["title"].unique())
+print("书名:", titles)
+
+# 停止词
+with open("data/stop_word_zh.utf8", encoding="utf-8") as f:
+    stopwords = set(line.strip() for line in f if line.strip())
+
+# 分词 + 移除停止词
+def segment_clean(text):
+    if not isinstance(text, str):
+        return []
+    return [w for w in jieba.lcut(text) if w.strip() and w not in stopwords]
+
+books["words"] = books["text"].apply(segment_clean)
+```
+
+按回分文档（等价于 R 的 `cumsum(str_detect(text, "^第...回"))`）：
+
+```{python}
+chapter_re = re.compile(r"^第[零一二三四五六七八九十百 ]+回")
+
+documents = []  # (doc_name, word_list)
+for title, group in books.groupby("title"):
+    chapter_num = 0
+    for _, row in group.iterrows():
+        text = row["text"] if isinstance(row["text"], str) else ""
+        if chapter_re.search(text):
+            chapter_num += 1
+        if chapter_num > 0:
+            doc_name = f"{title}_{chapter_num}"
+            documents.append((doc_name, row["words"]))
+
+print(f"文档数: {len(documents)}")
+print("示例:", documents[0][0], documents[0][1][:10])
+```
+
+## 构建 DTM 并运行 LDA
+
+```{python}
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+
+# 用空格连接的词作为"句子"喂给 CountVectorizer
+doc_names = [d[0] for d in documents]
+doc_texts = [" ".join(d[1]) for d in documents]
+
+vectorizer = CountVectorizer(tokenizer=lambda x: x.split(), lowercase=False)
+dtm = vectorizer.fit_transform(doc_texts)
+print(f"DTM: {dtm.shape}, 词汇表: {len(vectorizer.vocabulary_)}")
+
+# LDA k=6（等价于 R LDA(chapters_dtm, k=6, seed=1234)）
+lda = LatentDirichletAllocation(n_components=6, random_state=1234, max_iter=30)
+lda.fit(dtm)
+```
+
+## 词-主题概率（beta）
+
+```{python}
+feature_names = vectorizer.get_feature_names_out()
+beta = lda.components_  # (n_topics, n_terms)
+# 归一化为概率
+beta = beta / beta.sum(axis=1, keepdims=True)
+
+# 每个主题 top 5 词
+for topic_idx in range(6):
+    top5 = np.argsort(beta[topic_idx])[-5:][::-1]
+    words = [feature_names[i] for i in top5]
+    print(f"主题{topic_idx+1}: {', '.join(words)}")
+```
+
+各主题最高词可视化（等价于图 \@ref(fig-toptermsplot)）：
+
+```{python}
+#| label: fig-toptermsplot-py
+#| fig-cap: "每个主题中最常见的术语（Python）"
+top_terms = []
+for t in range(6):
+    top5_idx = np.argsort(beta[t])[-5:]
+    for i in top5_idx:
+        top_terms.append({"topic": t+1, "term": feature_names[i], "beta": beta[t, i]})
+top_df = pd.DataFrame(top_terms)
+
+fig, axes = plt.subplots(3, 2, figsize=(7, 8))
+for ax, t in zip(axes.flat, range(1, 7)):
+    sub = top_df[top_df["topic"] == t].sort_values("beta")
+    ax.barh(sub["term"], sub["beta"])
+    ax.set_title(f"主题{t}")
+    ax.set_xlabel("beta")
+plt.tight_layout()
+plt.show()
+```
+
+## 文档-主题概率（gamma）
+
+```{python}
+gamma = lda.transform(dtm)  # (n_docs, n_topics)
+# 拆分文档名
+doc_info = pd.DataFrame({"document": doc_names})
+doc_info[["title", "chapter"]] = doc_info["document"].str.rsplit("_", n=1, expand=True)
+doc_info["chapter"] = doc_info["chapter"].astype(int)
+
+gamma_df = pd.DataFrame(gamma, columns=[f"主题{i+1}" for i in range(6)])
+gamma_df = pd.concat([doc_info, gamma_df], axis=1)
+gamma_df.head()
+```
+
+每本书在各主题上的 gamma 分布（等价于图 \@ref(fig-chaptersldagamma)）：
+
+```{python}
+#| label: fig-chaptersldagamma-py
+#| fig-cap: "每本书中每章的 gamma 概率（Python）"
+fig, axes = plt.subplots(3, 2, figsize=(8, 8))
+for ax, title in zip(axes.flat, titles):
+    sub = gamma_df[gamma_df["title"] == title]
+    for t in range(6):
+        ax.scatter(sub["chapter"], sub[f"主题{t+1}"], alpha=0.5, s=8, label=f"主题{t+1}")
+    ax.set_title(title)
+    ax.set_xlabel("章")
+    ax.set_ylabel("gamma")
+    ax.legend(fontsize=6, ncol=2)
+plt.tight_layout()
+plt.show()
+```
+
+## R vs Python 对比
+
+| 任务 | R | Python |
+|---|---|---|
+| 分词 | jiebaR `worker()` | jieba `lcut()` |
+| DTM 构建 | `cast_dtm()` | `CountVectorizer` |
+| LDA | `topicmodels::LDA()` | `sklearn LatentDirichletAllocation` |
+| beta 提取 | `tidy(lda, matrix="beta")` | `lda.components_` 归一化 |
+| gamma 提取 | `tidy(lda, matrix="gamma")` | `lda.transform(dtm)` |
+| 绘图 | ggplot2 `facet_wrap()` | matplotlib subplots |
+
+sklearn 的 LDA 使用变分 EM，R topicmodels 默认也用 VEM，但超参数和收敛细节不同，结果不会完全一致。主题-书的对应关系应类似。
