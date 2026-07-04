@@ -18,6 +18,8 @@ book:
   chapters:
     - index.Rmd
     - 01-tidy-text.Rmd
+    - 01-tidy-text-python.qmd
+    - 01-tidy-text-julia.qmd
     - 02-sentiment-analysis.Rmd
     - 03-tf-idf.Rmd
     - 04-word-combinations.Rmd

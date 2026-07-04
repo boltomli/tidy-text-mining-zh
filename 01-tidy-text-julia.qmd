@@ -1,0 +1,181 @@
+---
+engine: jupyter
+title: "Julia 实现：tidy 文本格式"
+---
+
+# Julia 实现：tidy 文本格式 {#sec-tidytext-julia}
+
+本章用 Julia 重现第 \@ref(sec-tidytext) 章的内容：中文分词、tidy（每行一词）格式、词频统计与跨作品比较。Julia 端用 **DataFrames.jl** 对应 dplyr，**CairoMakie.jl** 对应 ggplot2。中文分词用纯 Julia 的正向最大匹配（FMM），词典来自 jieba 的 `dict.txt`（纯数据文件）。数据从统一导出的 parquet 读取（见 `data/export-common.R`）。
+
+> **分词精度说明**：R jiebaR 和 Python jieba 均基于 CppJieba（HMM + 词典），而本章的 Julia FMM 仅做词典最大匹配，无 HMM 和新词发现，精度较低。未登录词会被切成单字。这是 Julia 生态缺乏成熟中文分词包的权宜之计（见 `docs/trilingual-plan.md` §4 调研结论）。
+
+## 分词与 tidy 格式
+
+以李白《静夜思》为例。先加载 FMM 分词器（`data/jieba_fmm.jl`）和词典。
+
+```{julia}
+include("data/jieba_fmm.jl")
+using DataFrames
+
+dict = load_dict("data/jieba_dict.txt")
+println("词典词数: ", length(dict))
+
+text = ["床前明月光，", "疑是地上霜。", "举头望明月，", "低头思故乡。"]
+# 分词（保留标点用于展示）
+segmented = [join(fmm_segment(line, dict), " ") for line in text]
+text_df = DataFrame(line = 1:4, text = segmented)
+```
+
+展开为每行一词（等价于 `unnest_tokens(word, text)`）：
+
+```{julia}
+words_per_line = split.(text_df.text)
+lines = reduce(vcat, [fill(l, length(w)) for (l, w) in zip(text_df.line, words_per_line)])
+all_words = reduce(vcat, words_per_line)
+tidy = DataFrame(line = lines, word = all_words)
+tidy[1:12, :]
+```
+
+## 四大名著词频
+
+从 parquet 读取明清小说数据，分词并移除停止词，统计词频。
+
+```{julia}
+using Parquet2
+
+books = DataFrame(Parquet2.Dataset("data/common/books.parquet"))
+first(books, 5)
+```
+
+```{julia}
+# 读取中文停止词
+stopwords = load_stopwords("data/stop_word_zh.utf8")
+
+# 分词并移除停止词
+function segment_corpus(df, dict, stopwords)
+    rows = []
+    for row in eachrow(df)
+        ismissing(row.text) && continue
+        words = fmm_segment(row.text, dict)
+        for w in words
+            w = strip(w)
+            isempty(w) && continue
+            w in stopwords && continue
+            push!(rows, (gutenberg_id = row.gutenberg_id, word = w))
+        end
+    end
+    return DataFrame(rows)
+end
+
+tidy_books = segment_corpus(books, dict, stopwords)
+first(tidy_books, 10)
+```
+
+```{julia}
+# 词频统计（等价于 count(word, sort = TRUE)）
+using StatsBase
+word_counts = combine(groupby(tidy_books, :word), nrow => :n)
+sort!(word_counts, :n, rev = true)
+first(word_counts, 10)
+```
+
+绘制最常见的词（等价于图 \@ref(fig-plotcount-zh)）：
+
+```{julia}
+#| label: fig-plotcount-zh-jl
+#| fig-cap: "四大名著中最常见的词（Julia）"
+using CairoMakie
+CairoMakie.activate!()
+set_theme!(fonts = (regular = "Microsoft YaHei",))
+
+top = filter(:n => >=(5000), word_counts)
+sort!(top, :n)
+
+fig = Figure(size = (600, 500))
+ax = Axis(fig[1, 1]; xlabel = "n", yticks = (collect(1:nrow(top)), collect(top.word)))
+barplot!(ax, collect(1:nrow(top)), top.n; direction = :x)
+fig
+```
+
+## 跨作品词频比较
+
+将三言、子不语与四大名著的词频放在一起比较（等价于图 \@ref(fig-plotcompare)）。
+
+```{julia}
+sanyan = DataFrame(Parquet2.Dataset("data/common/sanyan.parquet"))
+zibuyu = DataFrame(Parquet2.Dataset("data/common/zibuyu.parquet"))
+
+function tidy_corpus(df, label, dict, stopwords)
+    rows = []
+    for row in eachrow(df)
+        ismissing(row.text) && continue
+        words = fmm_segment(row.text, dict)
+        for w in words
+            w = strip(w)
+            isempty(w) && continue
+            w in stopwords && continue
+            push!(rows, (author = label, word = w))
+        end
+    end
+    return DataFrame(rows)
+end
+
+tidy_all = vcat(
+    tidy_corpus(books, "Various", dict, stopwords),
+    tidy_corpus(sanyan, "冯梦龙", dict, stopwords),
+    tidy_corpus(zibuyu, "袁枚", dict, stopwords),
+)
+
+# 计算各作品集内每个词的比例
+freq = combine(groupby(tidy_all, [:author, :word]), nrow => :n)
+transform!(freq, :n => :proportion)
+# 按作者归一化
+for sub in groupby(freq, :author)
+    sub.proportion .= sub.n ./ sum(sub.n)
+end
+select!(freq, [:author, :word, :proportion])
+
+# 透视成宽表
+pivot = unstack(freq, :word, :author, :proportion, fill = 0.0)
+first(pivot, 5)
+```
+
+```{julia}
+#| label: fig-plotcompare-jl
+#| fig-cap: "冯梦龙、袁枚与四大名著的词频比较（Julia）"
+fig = Figure(size = (700, 350))
+others = ["冯梦龙", "袁枚"]
+
+for (i, other) in enumerate(others)
+    ax = Axis(fig[1, i]; xlabel = other, ylabel = "Various",
+              xscale = log10, yscale = log10)
+    sub = filter([other, "Various"] => (o, v) -> o > 0 && v > 0, pivot)
+    scatter!(ax, sub[:, other], sub[:, "Various"]; alpha = 0.3, markersize = 5)
+    lines!(ax, [1e-6, 1e-1], [1e-6, 1e-1]; color = :gray, linestyle = :dash)
+end
+fig
+```
+
+```{julia}
+# 相关度检验（等价于 cor.test）
+using Statistics
+for other in others
+    sub = filter([other, "Various"] => (o, v) -> o > 0 && v > 0, pivot)
+    corr = cor(sub[:, other], sub[:, "Various"])
+    println("四大名著 vs $other: r = $(round(corr, digits=4))")
+end
+```
+
+## R vs Julia 对比
+
+| 任务 | R | Julia |
+|---|---|---|
+| 分词 | jiebaR `worker()` + `segment()` | 纯 Julia FMM `fmm_segment()` |
+| 词典 | jiebaR 内置 CppJieba 词典 | jieba `dict.txt`（同源数据） |
+| tidy 展开 | `unnest_tokens(word, text)` | `split.` + `DataFrame` 构造 |
+| 词频 | `count(word, sort = TRUE)` | `combine(groupby, nrow)` + `sort!` |
+| 停止词 | jiebaR `stop_word` 参数 | `Set` 过滤 |
+| 绘图 | ggplot2 `geom_col()` | CairoMakie `barplot!()` |
+| 相关度 | `cor.test()` | `Statistics.cor()` |
+
+Julia FMM 分词精度低于 R/Python 的 jieba（无 HMM、无新词发现），词频结果会有差异，尤其体现在未登录词被拆成单字的情况。相关度趋势应与 R 一致。

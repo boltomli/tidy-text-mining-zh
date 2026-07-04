@@ -22,3 +22,7 @@ Rplots.pdf
 # 单文件 quarto 渲染的中间产物与 site_libs
 *.rmarkdown
 /site_libs/
+# 统一导出数据（由 data/export-common.R 生成，体积大不入版本控制）
+/data/common/
+# Julia jupyter-cache
+/.jupyter_cache/
