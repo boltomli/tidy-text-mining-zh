@@ -17,6 +17,7 @@ However, most of the existing R tools for natural language processing, besides t
 Computer scientist Hal Abelson has observed that "No matter how complex and polished the individual operations are, it is often the quality of the glue that most directly determines the power of the system" [@Friedman:2008:EPL:1378240]. In that spirit, this chapter will discuss the "glue" that connects the tidy text format with other important packages and data structures, allowing you to rely on both existing text mining packages and the suite of tidy tools to perform your analysis.
 
 ```{r tidyflowchartch5, echo = FALSE, out.width = '100%', fig.cap = "A flowchart of a typical text analysis that combines tidytext with other tools and data formats, particularly the tm or quanteda packages. This chapter shows how to convert back and forth between document-term matrices and tidy data frames, as well as converting from a Corpus object to a text data frame."}
+#| label: fig-tidyflowchartch5
 knitr::include_graphics("images/tidyflow-ch-5.png")
 ```
 
@@ -85,6 +86,7 @@ ap_sentiments
 This would let us visualize which words from the AP articles most often contributed to positive or negative sentiment, seen in Figure @fig-apsentimentplot. We can see that the most common positive words include "like", "work", "support", and "good", while the most negative words include "killed", "death", and "vice". (The inclusion of "vice" as a negative term is probably a mistake on the algorithm's part, since it likely usually refers to "vice president").
 
 ```{r apsentimentplot, dependson = "apsentiments", fig.height = 6, fig.width = 7, fig.cap = "Words from AP articles with the greatest contribution to positive or negative sentiments, using the Bing sentiment lexicon."}
+#| label: fig-apsentimentplot
 library(ggplot2)
 
 ap_sentiments %>%
@@ -132,6 +134,7 @@ inaug_tf_idf
 We could use this data to pick four notable inaugural addresses (from Presidents Lincoln, Roosevelt, Kennedy, and Obama), and visualize the words most specific to each speech, as shown in Figure @fig-presidentspeeches.
 
 ```{r presidentspeeches, dependson = "presidents", echo = FALSE, fig.cap = "The terms with the highest tf-idf from each of four selected inaugural addresses. Note that quanteda's tokenizer includes the '?' punctuation mark as a term, though the texts we've tokenized ourselves with unnest_tokens do not.", fig.height=7, fig.width=6}
+#| label: fig-presidentspeeches
 speeches <- c("1933-Roosevelt", "1861-Lincoln",
               "1961-Kennedy", "2009-Obama")
 
@@ -168,6 +171,7 @@ year_term_counts <- inaug_td %>%
 This lets us pick several words and visualize how they changed in frequency over time, as shown in @fig-yearterm. We can see that over time, American presidents became less likely to refer to the country as the "Union" and more likely to refer to "America". They also became less likely to talk about the "constitution" and foreign" countries, and more likely to mention "freedom" and "God".
 
 ```{r yearterm, dependson = "year_term_counts", fig.cap = "Changes in word frequency over time within Presidential inaugural addresses, for six selected terms"}
+#| label: fig-yearterm
 year_term_counts %>%
   filter(term %in% c("god", "america", "foreign", "union", "constitution", "freedom")) %>%
   ggplot(aes(year, count / year_total)) +
@@ -332,6 +336,7 @@ stock_tf_idf <- stock_tokens %>%
 The top terms for each are visualized in Figure @fig-stocktfidf. As we'd expect, the company's name and symbol are typically included, but so are several of their product offerings and executives, as well as companies they are making deals with (such as Disney with Netflix).
 
 ```{r stocktfidf, dependson = "stocktfidfdata", echo = FALSE, fig.cap = "The 8 words with the highest tf-idf in recent articles specific to each company", fig.height = 8, fig.width = 8}
+#| label: fig-stocktfidf
 stock_tf_idf %>%
   group_by(company) %>%
   top_n(8, tf_idf) %>%
@@ -348,6 +353,7 @@ stock_tf_idf %>%
 If we were interested in using recent news to analyze the market and make investment decisions, we'd likely want to use sentiment analysis to determine whether the news coverage was positive or negative. Before we run such an analysis, we should look at what words would contribute the most to positive and negative sentiments, as was shown in Chapter @sec-most-positive-negative. For example, we could examine this within the AFINN lexicon (Figure @fig-stockafinn).
 
 ```{r stockafinn, dependson = "stock_articles", fig.cap = "The words with the largest contribution to sentiment values in recent financial articles, according to the AFINN dictionary. The 'contribution' is the product of the word and the sentiment value."}
+#| label: fig-stockafinn
 load("data/afinn.rda")
 stock_tokens %>%
   anti_join(stop_words, by = "word") %>%
@@ -370,6 +376,7 @@ Instead, we introduce another sentiment lexicon: the Loughran and McDonald dicti
 The Loughran data divides words into six sentiments: "positive", "negative", "litigious", "uncertain", "constraining", and "superfluous". We could start by examining the most common words belonging to each sentiment within this text dataset.
 
 ```{r stockloughransentiments, fig.cap = "The most common words in the financial news articles associated with each of the six sentiments in the Loughran and McDonald lexicon"}
+#| label: fig-stockloughransentiments
 load("data/loughran.rda")
 stock_tokens %>%
   count(word) %>%
@@ -401,6 +408,7 @@ stock_sentiment_count
 It might be interesting to examine which company has the most news with "litigious" or "uncertain" terms. But the simplest measure, much as it was for most analysis in Chapter @sec-sentiment, is to see whether the news is more positive or negative. As a general quantitative measure of sentiment, we'll use "(positive - negative) / (positive + negative)" (Figure @fig-stockpositivity).
 
 ```{r stockpositivity, fig.cap = "\"Positivity\" of the news coverage around each stock in January 2017, calculated as (positive - negative) / (positive + negative), based on uses of positive and negative words in 20 recent news articles about each company"}
+#| label: fig-stockpositivity
 stock_sentiment_count %>%
   mutate(value = (positive - negative) / (positive + negative)) %>%
   mutate(company = reorder(company, value)) %>%

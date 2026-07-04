@@ -59,9 +59,10 @@ chapter_words <- left_join(chapter_words, total_words)
 chapter_words
 ```
 
-此 `chapter_words` 数据框中每个词-部分之组合一行；`n` 是该词在该部分中出现的次数，`total` 是该部分全部词的数量。有最高 `n` 值的通常怀疑对象显然包括了“了”和“的”等。在图 @fig-plottf中，可以看到每部分中 `n/total` 的分布，一个词在一部分中出现的次数除以该部分所有术语（即词）的总量。这就是词频的含义。
+此 `chapter_words` 数据框中每个词-部分之组合一行；`n` 是该词在该部分中出现的次数，`total` 是该部分全部词的数量。有最高 `n` 值的通常怀疑对象显然包括了“了”和“的”等。在图 @fig-plottf 中，可以看到每部分中 `n/total` 的分布，一个词在一部分中出现的次数除以该部分所有术语（即词）的总量。这就是词频的含义。
 
 ```{r plottf, dependson = "chapter_words", fig.height=9, fig.width=9, fig.cap="《红楼梦》各部分的词频分布"}
+#| label: fig-plottf
 ggplot(chapter_words, aes(n/total, fill = chapter)) +
   geom_histogram(show.legend = FALSE) +
   xlim(NA, 0.0009) +
@@ -91,6 +92,7 @@ freq_by_rank
 这里的 `rank` 列显示了频率表内每个词的排名；由于表已经按 `n` 排序，我们可以用 `row_number()` 来确定排名。之后，我们可以按与之前一样的方式计算词频。要可视化齐夫定律，通常以排名为横坐标，词频为纵坐标，均使用对数比例。这种方式得到的逆向比例关系图像有稳定的负斜率。
 
 ```{r zipf, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="《红楼梦》中的齐夫定律"}
+#| label: fig-zipf
 freq_by_rank %>%
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
   geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
@@ -113,6 +115,7 @@ $$\text{频率} \propto \frac{1}{\text{排名}}$$
 而我们实际上已经得到了接近 -1 的斜率。把拟合的幂定律绘制到图 @fig-zipffit 里看看是什么样。
 
 ```{r zipffit, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="带有拟合指数的《红楼梦》中的齐夫定律"}
+#| label: fig-zipffit
 freq_by_rank %>%
   ggplot(aes(rank, `term frequency`, color = chapter)) + 
   geom_abline(intercept = -0.90, slope = -0.96, color = "gray50", linetype = 2) +
@@ -154,6 +157,7 @@ Some of the values for idf are the same for different terms because there are 6 
 图 @fig-plotseparate 是对这些高 tf-idf 词的可视化。
 
 ```{r plotseparate, dependson = "tf_idf", fig.height=10, fig.width=9, fig.cap="《红楼梦》每个部分中 tf-idf 最高的词"}
+#| label: fig-plotseparate
 chapter_words %>%
   select(-total) %>%
   arrange(desc(tf_idf)) %>%
@@ -202,6 +206,7 @@ stem_words
 目前我们看到的只是原始计数；要记得这些文档长度不同。我们继续计算 tf-idf，然后在图 @fig-stemseparate 中可视化 tf-idf 值高的词。
 
 ```{r stemseparate, dependson = "stem_words", fig.height=7, fig.width=8, fig.cap="每个科技文本中 tf-idf 最高的词"}
+#| label: fig-stemseparate
 plot_stem <- stem_words %>%
   bind_tf_idf(word, author, n) %>%
   arrange(desc(tf_idf)) %>%
@@ -225,6 +230,7 @@ plot_stem %>%
 这个结果已经足够有趣。但具体数字在这里也许不是重点，我们可以尝试用 `anti_join()` 移除掉纯数字词。
 
 ```{r stemclean, dependson = "stem_words", fig.height=7, fig.width=8, fig.cap="每个科技文本中 tf-idf 最高的词"}
+#| label: fig-stemclean
 library(stringr)
 mystopwords <- stem_words %>%
   filter(str_detect(word, "^[A-Za-z0-9零一二三四五六七八九十百千萬]+$")) %>%

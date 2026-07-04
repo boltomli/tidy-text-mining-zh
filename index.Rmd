@@ -1,15 +1,9 @@
 ```{r setup, include=FALSE}
+# 包安装已移至 install.R（一次性运行：Rscript install.R）。
+# 渲染时不再触发安装，避免每次 render 都联网/重装。
 options(
   htmltools.dir.version = FALSE, formatR.indent = 2, width = 55, digits = 4
 )
-
-lapply(c("dplyr", "tidytext", "stringr", "tidyr", "ggplot2", "gutenbergr",
-         "janeaustenr", "jiebaR", "showtext", "methods", "scales", "ggraph", "igraph", "widyr", "topicmodels",
-         "broom", "quanteda", "mallet", "coreNLP", "cleanNLP", "sentimentr", "wordcloud", "wordcloud2", "codetools", "purrr"),
-       function(pkg) {if (system.file(package = pkg) == '') install.packages(pkg, dependencies = TRUE)})
-if (!requireNamespace("mqxsr", quietly = TRUE)) {
-  devtools::install_github("boltomli/mingqingxiaoshuor", quiet = TRUE)
-}
 ```
 
 # Welcome to Text Mining with R {-}

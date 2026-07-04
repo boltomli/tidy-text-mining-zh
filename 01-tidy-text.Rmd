@@ -92,6 +92,7 @@ text_df %>%
 有了这种格式的数据，我们可以使用标准的 tidy 工具套装进行操作、处理和可视化，即 dplyr、tidyr 和 ggplot2。如图 @fig-tidyflow-ch1 所示。
 
 ```{r tidyflow-ch1, echo = FALSE, out.width = '100%', fig.cap = "使用 tidy 数据原则进行文本分析的典型流程图"}
+#| label: fig-tidyflow-ch1
 knitr::include_graphics("images/tidyflow-ch-1.png")
 ```
 
@@ -144,6 +145,7 @@ tidy_books %>%
 因为我们一直在使用 tidy 工具，词的个数存在一个 tidy 数据框里。这让我们可以把它直接通过管道传给 ggplot2 包，例如创建一个最常见的词的可视化（图 @fig-plotcount）。
 
 ```{r plotcount, dependson = "tidy_books", fig.width=6, fig.height=5, fig.cap="简·奥斯汀的小说中最常见的词"}
+#| label: fig-plotcount
 tidy_books %>%
   count(word, sort = TRUE) %>%
   filter(n > 600) %>%
@@ -200,6 +202,7 @@ tidy_mingqingxiaoshuo %>%
 图 @fig-plotcount-zh 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。`showtext`内嵌的[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
 
 ```{r plotcount-zh, dependson = "tidy_mingqingxiaoshuo", fig.width=6, fig.height=5, fig.cap="四大名著中最常见的词"}
+#| label: fig-plotcount-zh
 library(showtext)
 showtext_auto(enable = TRUE)
 pdf()
@@ -284,6 +287,7 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
 现在绘制图 @fig-plotcompare。
 
 ```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="冯梦龙、袁枚与四大名著的作品词频比较"}
+#| label: fig-plotcompare
 library(scales)
 
 # expect a warning about rows with missing values being removed

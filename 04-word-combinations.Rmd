@@ -114,6 +114,7 @@ bigram_tf_idf
 ```
 
 ```{r bigramtfidf, dependson = "bigram_tf_idf", echo = FALSE, fig.width=9, fig.height=9, fig.cap = "The 12 bigrams with the highest tf-idf from each half of Hongloumeng"}
+#| label: fig-bigramtfidf
 library(ggplot2)
 
 bigram_tf_idf %>%
@@ -176,6 +177,7 @@ For example, the most common sentiment-associated word to follow "not" was "like
 It's worth asking which words contributed the most in the "wrong" direction. To compute that, we can multiply their value by the number of times they appear (so that a word with a value of +3 occurring 10 times has as much impact as a word with a sentiment value of +1 occurring 30 times). We visualize the result with a bar plot (Figure @fig-notwordsplot).
 
 ```{r notwordsplot, dependson = "not_words", fig.width=8, fig.height=6, fig.cap = "The 20 words preceded by 'not' that had the greatest contribution to sentiment values, in either a positive or negative direction"}
+#| label: fig-notwordsplot
 library(ggplot2)
 not_words %>%
   mutate(contribution = n * value) %>%
@@ -204,6 +206,7 @@ negated_words <- bigrams_separated %>%
 We could then visualize what the most common words to follow each particular negation are (Figure @fig-negatedwords). While "not like" and "not help" are still the two most common examples, we can also see pairings such as "no great" and "never loved." We could combine this with the approaches in Chapter @sec-sentiment to reverse the AFINN values of each word that follows a negation. These are just a few examples of how finding consecutive words can give context to text mining methods.
 
 ```{r negatedwords, dependson = "negated_words", fig.width=9, fig.height=9, echo = FALSE, fig.cap = "The most common positive or negative words to follow negations such as 'never', 'no', 'not', and 'without'"}
+#| label: fig-negatedwords
 negated_words %>%
   mutate(contribution = n * value,
          word2 = reorder(paste(word2, word1, sep = "__"), contribution)) %>%
@@ -247,6 +250,7 @@ igraph has plotting functions built in, but they're not what the package is desi
 We can convert an igraph object into a ggraph with the `ggraph` function, after which we add layers to it, much like layers are added in ggplot2. For example, for a basic graph we need to add three layers: nodes, edges, and text.
 
 ```{r bigramgraph, dependson = "bigram_graph", fig.width = 12, fig.height = 12, fig.cap = "Common bigrams in Hongloumeng, showing those that occurred more than 25 times and where neither word was a stop word"}
+#| label: fig-bigramgraph
 library(ggraph)
 set.seed(2017)
 
@@ -266,6 +270,7 @@ We conclude with a few polishing operations to make a better looking graph (Figu
 * We add a theme that's useful for plotting networks, `theme_void()`
 
 ```{r bigramggraphausten2, dependson = "bigram_graph", fig.width = 12, fig.height = 12, fig.cap = "Common bigrams in Hongloumeng, with some polishing"}
+#| label: fig-bigramggraphausten2
 set.seed(2016)
 
 a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
@@ -336,6 +341,7 @@ load("data/kjv.rda")
 ```
 
 ```{r kjvbigrams, dependson = c("kjv", "visualize_bigrams"), fig.cap = "Directed graph of common bigrams in the King James Bible, showing those that occurred more than 40 times"}
+#| label: fig-kjvbigrams
 library(stringr)
 
 kjv_bigrams <- kjv %>%
@@ -357,6 +363,7 @@ Tokenizing by n-gram is a useful way to explore pairs of adjacent words. However
 Tidy data is a useful structure for comparing between variables or grouping by rows, but it can be challenging to compare between rows: for example, to count the number of times that two words appear within the same document, or to see how correlated they are. Most operations for finding pairwise counts or correlations need to turn the data into a wide matrix first.
 
 ```{r widyr, echo = FALSE, out.width = '100%', fig.cap = "The philosophy behind the widyr package, which can perform operations such as counting and correlating on pairs of values in a tidy dataset. The widyr package first 'casts' a tidy dataset into a wide matrix, performs an operation such as a correlation on it, then re-tidies the result."}
+#| label: fig-widyr
 knitr::include_graphics("images/widyr.jpg")
 ```
 
@@ -441,6 +448,7 @@ word_cors %>%
 This lets us pick particular interesting words and find the other words most associated with them (Figure @fig-wordcors).
 
 ```{r wordcors, dependson = "word_cors", fig.height = 8, fig.width = 8, fig.cap = "Words from Pride and Prejudice that were most correlated with 'elizabeth', 'pounds', 'married', and 'pride'"}
+#| label: fig-wordcors
 word_cors %>%
   filter(item1 %in% c("yue", "ounces", "married", "red")) %>%
   group_by(item1) %>%
@@ -456,6 +464,7 @@ word_cors %>%
 Just as we used ggraph to visualize bigrams, we can use it to visualize the correlations and clusters of words that were found by the widyr package (Figure @fig-wordcorsnetwork).
 
 ```{r wordcorsnetwork, dependson = "word_cors", fig.height = 8, fig.width = 8, fig.cap = "Pairs of words in Pride and Prejudice that show at least a .15 correlation of appearing within the same 10-line section"}
+#| label: fig-wordcorsnetwork
 set.seed(2016)
 
 word_cors %>%

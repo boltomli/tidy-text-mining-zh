@@ -19,3 +19,6 @@ reanalysis-hongloumeng.R
 # knitr 单文件渲染的图输出目录与 pdf() 残留
 *_files/
 Rplots.pdf
+# 单文件 quarto 渲染的中间产物与 site_libs
+*.rmarkdown
+/site_libs/

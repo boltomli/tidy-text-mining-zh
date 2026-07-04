@@ -15,6 +15,7 @@ theme_set(theme_light())
 前一章中，我们深入探索了何为 tidy 文本格式，并展示了如何在关于词频的问题中应用这一格式。我们可以分析文档中哪些词使用频率最高。现在我们来调查一个不同的主题，对倾向进行挖掘，即情感分析。当人类读者接触到一个文本，会对情感意图词汇进行推断，理解一段文本是正面还是负面的，或者归类于其它更细微的情感，如惊讶或恶心。我们可以用文本挖掘工具程序化地获得文本的情感内容，如图 @fig-tidyflow-ch2 所示。
 
 ```{r tidyflow-ch2, echo = FALSE, out.width = '100%', fig.cap = "典型的使用 tidy 文本进行情感分析的文本分析流程图"}
+#| label: fig-tidyflow-ch2
 knitr::include_graphics("images/tidyflow-ch-2.png")
 ```
 
@@ -132,6 +133,7 @@ net_sentiment <- tidy_books %>%
 现在可以为上下半部分别绘制情感分值图。注意，横轴为记录叙事文本时值的索引。
 
 ```{r sentimentplot, dependson = "net_sentiment", fig.width=9, fig.height=10, fig.cap="《红楼梦》英译本叙事过程中的情感"}
+#| label: fig-sentimentplot
 library(ggplot2)
 
 ggplot(net_sentiment, aes(index, sentiment, fill = book)) +
@@ -192,6 +194,7 @@ bing_and_nrc <- bind_rows(book_2 %>%
 现在有了每个情感词典对小说文本中每段的情感净值的估值（正面计数 - 负面计数）。在图 @fig-compareplot 中可以看到全部的结果。
 
 ```{r compareplot, dependson = "comparesentiment", fig.width=9, fig.height=7.5, fig.cap="用《红楼梦》英译本下半部比较三个情感词典"}
+#| label: fig-compareplot
 bind_rows(afinn, 
           bing_and_nrc) %>%
   ggplot(aes(index, sentiment, fill = method)) +
@@ -231,6 +234,7 @@ bing_word_counts
 我们可以直接通过管道发送到 ggplot2 进行可视化，因为我们一直坚持使用处理 tidy 数据框的工具。
 
 ```{r pipetoplot, dependson = "wordcounts", fig.width=8, fig.height=4, fig.cap="《红楼梦》英译本中正面和负面情感的词"}
+#| label: fig-pipetoplot
 bing_word_counts %>%
   group_by(sentiment) %>%
   top_n(10) %>%
@@ -260,6 +264,7 @@ custom_stop_words
 比如，考虑使用 wordcloud2 包 [@R-wordcloud2] 以便显示中文。我们再来看一下《红楼梦》中最常见的词，但这次是词云图 @fig-firstwordcloud。
 
 ```{r firstwordcloud, fig.height=6, fig.width=6, fig.cap="《红楼梦》常见词云"}
+#| label: fig-firstwordcloud
 library(wordcloud2)
 load("data/hongloumeng.rda")
 
@@ -276,6 +281,7 @@ hongloumeng %>%
 使用 R base 的 wordcloud 包 [@R-wordcloud] 包含了 `comparison.cloud()`，可以用 reshape2 的 `acast()` 把数据框转变为矩阵。用内部联接标记情感分析正面和负面的词，然后找到最常见的正面和负面词。在把数据发给 `comparison.cloud()` 之前，都可以用联接、管道和 dplyr，因为数据为 tidy 格式。
 
 ```{r wordcloud, dependson = "custom_stop_words", fig.height=5, fig.width=5, fig.cap="《红楼梦》英译本中最常见的正面与负面词"}
+#| label: fig-wordcloud
 library(reshape2)
 library(wordcloud)
 
