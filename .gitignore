@@ -9,3 +9,8 @@ packages.bib
 output/
 .venv/
 reanalysis-hongloumeng.R
+# Quarto 本地环境覆盖（不入版本控制）
+/_*.local
+
+/.quarto/
+**/*.quarto_ipynb
