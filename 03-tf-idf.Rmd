@@ -1,4 +1,4 @@
-# 对词与文档频率进行分析：tf-idf {#tfidf}
+# 对词与文档频率进行分析：tf-idf {#sec-tfidf}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -14,7 +14,7 @@ theme_zh <- theme_light() +
 theme_set(theme_zh)
 ```
 
-文本挖掘与自然语言处理的一个中心问题是如何量化一个文档的内容。我们可以通过观察组成文档的词做到这一点吗？一个词的重要性的测度可以是其 *词频*（term frequency，tf），一个词在一个文档中出现的频率，我们在章 \@ref(tidytext) 中已经检查过了。然而，一个文档中有些词出现了很多次但可能并不重要；在英语中，这些词很可能是诸如“the”“is”“of”之类。我们可以通过加入停止词列表的方法在分析前就把这些词去掉，但是这些词中的某些词可能在有的文档中比另一些更重要。用停止词列表调整常用词词频的方法还不够精巧。
+文本挖掘与自然语言处理的一个中心问题是如何量化一个文档的内容。我们可以通过观察组成文档的词做到这一点吗？一个词的重要性的测度可以是其 *词频*（term frequency，tf），一个词在一个文档中出现的频率，我们在章 @sec-tidytext 中已经检查过了。然而，一个文档中有些词出现了很多次但可能并不重要；在英语中，这些词很可能是诸如“the”“is”“of”之类。我们可以通过加入停止词列表的方法在分析前就把这些词去掉，但是这些词中的某些词可能在有的文档中比另一些更重要。用停止词列表调整常用词词频的方法还不够精巧。
 
 另一种方法是观察一个术语在一组文档中的 *逆向文档频率*（inverse document frequency，idf），可降低常用词的权重并提高不很常用的词的权重。可以将 idf 与 tf 合并来计算一个术语的 *tf-idf*（把这两个量相乘），从而用一个术语不常见的量度来调整其频率。
 
@@ -28,7 +28,7 @@ $$idf(\text{术语}) = \ln{\left(\frac{n_{\text{文档的数量}}}{n_{\text{含�
 
 如果上面的公式看不清楚，可以在其上点击右键，选择 `Math Settings -> Math Renderer -> HTML-CSS` 或其它合适的选项。有时候 MathJax 默认选项对中文支持不佳。
 
-我们可以如同章 \@ref(tidytext) 中描述的那样使用 tidy 数据原则进行 tf-idf 分析，使用一致、有效的工具来量化不同术语对一组文档中的一个文档的重要程度。
+我们可以如同章 @sec-tidytext 中描述的那样使用 tidy 数据原则进行 tf-idf 分析，使用一致、有效的工具来量化不同术语对一组文档中的一个文档的重要程度。
 
 ## 《红楼梦》中的词频（tf）
 
@@ -59,7 +59,7 @@ chapter_words <- left_join(chapter_words, total_words)
 chapter_words
 ```
 
-此 `chapter_words` 数据框中每个词-部分之组合一行；`n` 是该词在该部分中出现的次数，`total` 是该部分全部词的数量。有最高 `n` 值的通常怀疑对象显然包括了“了”和“的”等。在图 \@ref(fig:plottf)中，可以看到每部分中 `n/total` 的分布，一个词在一部分中出现的次数除以该部分所有术语（即词）的总量。这就是词频的含义。
+此 `chapter_words` 数据框中每个词-部分之组合一行；`n` 是该词在该部分中出现的次数，`total` 是该部分全部词的数量。有最高 `n` 值的通常怀疑对象显然包括了“了”和“的”等。在图 @fig-plottf中，可以看到每部分中 `n/total` 的分布，一个词在一部分中出现的次数除以该部分所有术语（即词）的总量。这就是词频的含义。
 
 ```{r plottf, dependson = "chapter_words", fig.height=9, fig.width=9, fig.cap="《红楼梦》各部分的词频分布"}
 ggplot(chapter_words, aes(n/total, fill = chapter)) +
@@ -72,7 +72,7 @@ ggplot(chapter_words, aes(n/total, fill = chapter)) +
 
 ## 齐夫定律（Zipf's law）
 
-如图 \@ref(fig:plottf) 所示的分布在语言中很典型。实际上，给出任何自然语言的语料（如一本书，来自网站的大量文本，或是大量口述），长尾分布的类型都如此常见，因此一个词的频率与其排名的关系一直是研究的对象；这种关系的一个经典版本叫做齐夫定律，来自一位20世纪美国语言学家乔治·齐夫。
+如图 @fig-plottf 所示的分布在语言中很典型。实际上，给出任何自然语言的语料（如一本书，来自网站的大量文本，或是大量口述），长尾分布的类型都如此常见，因此一个词的频率与其排名的关系一直是研究的对象；这种关系的一个经典版本叫做齐夫定律，来自一位20世纪美国语言学家乔治·齐夫。
 
 ```{block, type = "rmdnote"}
 Zipf's law states that the frequency that a word appears is inversely proportional to its rank. 
@@ -80,7 +80,7 @@ Zipf's law states that the frequency that a word appears is inversely proportion
 
 有了用来绘制词频的数据框，只要几行 dplyr 函数即可在《红楼梦》的各部分上检验齐夫定律。
 
-```{r freq_by_rank, dependson = chapter_words}
+```{r freq_by_rank, dependson = "chapter_words"}
 freq_by_rank <- chapter_words %>%
   group_by(chapter) %>%
   mutate(rank = row_number(), 
@@ -98,7 +98,7 @@ freq_by_rank %>%
   scale_y_log10()
 ```
 
-注意，图 \@ref(fig:zipf) 中的坐标轴为对数-对数关系。可以看出，《红楼梦》的六个部分都很相似，排名与频率间的关系呈现负斜率，然而并不十分恒定。也许我们可以把这条线分成比方说三段，呈现为[幂定律](https://en.wikipedia.org/wiki/Power_law)。来看一下排名区间位于中段的幂指数如何。
+注意，图 @fig-zipf 中的坐标轴为对数-对数关系。可以看出，《红楼梦》的六个部分都很相似，排名与频率间的关系呈现负斜率，然而并不十分恒定。也许我们可以把这条线分成比方说三段，呈现为[幂定律](https://en.wikipedia.org/wiki/Power_law)。来看一下排名区间位于中段的幂指数如何。
 
 ```{r lower_rank, dependson = "freq_by_rank"}
 rank_subset <- freq_by_rank %>%
@@ -110,7 +110,7 @@ lm(log10(`term frequency`) ~ log10(rank), data = rank_subset)
 经典版本的齐夫定律有
 
 $$\text{频率} \propto \frac{1}{\text{排名}}$$
-而我们实际上已经得到了接近 -1 的斜率。把拟合的幂定律绘制到图 \@ref(fig:zipffit) 里看看是什么样。
+而我们实际上已经得到了接近 -1 的斜率。把拟合的幂定律绘制到图 @fig-zipffit 里看看是什么样。
 
 ```{r zipffit, dependson = "freq_by_rank", fig.width=6, fig.height=5, fig.cap="带有拟合指数的《红楼梦》中的齐夫定律"}
 freq_by_rank %>%
@@ -151,7 +151,7 @@ chapter_words %>%
 Some of the values for idf are the same for different terms because there are 6 documents in this corpus and we are seeing the numerical value for $\ln(6/1)$, $\ln(6/2)$, etc. 
 ```
 
-图 \@ref(fig:plotseparate) 是对这些高 tf-idf 词的可视化。
+图 @fig-plotseparate 是对这些高 tf-idf 词的可视化。
 
 ```{r plotseparate, dependson = "tf_idf", fig.height=10, fig.width=9, fig.cap="《红楼梦》每个部分中 tf-idf 最高的词"}
 chapter_words %>%
@@ -168,7 +168,7 @@ chapter_words %>%
   coord_flip()
 ```
 
-图 \@ref(fig:plotseparate) 中占据统治地位的依然是专有名词！由 tf-idf 度量找到的这些词对其所在的部分非常重要，多数读者当欣然同意。tf-idf 度量可以告诉我们《红楼梦》各部分语言相似，而区分不同部分的主要是专有名词，人名和地名，以及其它一些名词。这就是 tf-idf 的意义；识别出对多个文档的集合中的一个文档更重要的词。
+图 @fig-plotseparate 中占据统治地位的依然是专有名词！由 tf-idf 度量找到的这些词对其所在的部分非常重要，多数读者当欣然同意。tf-idf 度量可以告诉我们《红楼梦》各部分语言相似，而区分不同部分的主要是专有名词，人名和地名，以及其它一些名词。这就是 tf-idf 的意义；识别出对多个文档的集合中的一个文档更重要的词。
 
 ## 科技文本语料
 
@@ -199,7 +199,7 @@ stem_words <- stem %>%
 stem_words
 ```
 
-目前我们看到的只是原始计数；要记得这些文档长度不同。我们继续计算 tf-idf，然后在图 \@ref(fig:stemseparate) 中可视化 tf-idf 值高的词。
+目前我们看到的只是原始计数；要记得这些文档长度不同。我们继续计算 tf-idf，然后在图 @fig-stemseparate 中可视化 tf-idf 值高的词。
 
 ```{r stemseparate, dependson = "stem_words", fig.height=7, fig.width=8, fig.cap="每个科技文本中 tf-idf 最高的词"}
 plot_stem <- stem_words %>%
@@ -251,7 +251,7 @@ plot_stem %>%
   coord_flip()
 ```
 
-从图 \@ref(fig:stemclean) 中可以得出一些结论，如《天工開物》包括了工匠操作的具体步骤；算术方面，劉徽似乎更关注楼台高度、水土面积的计算等，而《孫子算經》则有更多度量粮食的问题。
+从图 @fig-stemclean 中可以得出一些结论，如《天工開物》包括了工匠操作的具体步骤；算术方面，劉徽似乎更关注楼台高度、水土面积的计算等，而《孫子算經》则有更多度量粮食的问题。
 
 ## 小结 
 

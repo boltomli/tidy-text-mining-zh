@@ -1,4 +1,4 @@
-# 非 tidy 格式与 tidy 格式互相转换 {#dtm}
+# 非 tidy 格式与 tidy 格式互相转换 {#sec-dtm}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -20,9 +20,9 @@ Computer scientist Hal Abelson has observed that "No matter how complex and poli
 knitr::include_graphics("images/tidyflow-ch-5.png")
 ```
 
-Figure \@ref(fig:tidyflowchartch5) illustrates how an analysis might switch between tidy and non-tidy data structures and tools. This chapter will focus on the process of tidying document-term matrices, as well as casting a tidy data frame into a sparse matrix. We'll also explore how to tidy Corpus objects, which combine raw text with document metadata, into text data frames, leading to a case study of ingesting and analyzing financial articles.
+Figure @fig-tidyflowchartch5 illustrates how an analysis might switch between tidy and non-tidy data structures and tools. This chapter will focus on the process of tidying document-term matrices, as well as casting a tidy data frame into a sparse matrix. We'll also explore how to tidy Corpus objects, which combine raw text with document metadata, into text data frames, leading to a case study of ingesting and analyzing financial articles.
 
-## 将文档-术语矩阵 tidy 化 {#tidy-dtm}
+## 将文档-术语矩阵 tidy 化 {#sec-tidy-dtm}
 
 One of the most common structures that text mining packages work with is the [document-term matrix](https://en.wikipedia.org/wiki/Document-term_matrix) (or DTM). This is a matrix where:
 
@@ -37,7 +37,7 @@ DTM objects cannot be used directly with tidy tools, just as tidy data frames ca
 * `tidy()` turns a document-term matrix into a tidy data frame. This verb comes from the broom package [@R-broom], which provides similar tidying functions for many statistical models and objects.
 * `cast()` turns a tidy one-term-per-row data frame into a matrix. tidytext provides three variations of this verb, each converting to a different type of matrix: `cast_sparse()` (converting to a sparse matrix from the Matrix package), `cast_dtm()` (converting to a `DocumentTermMatrix` object from tm), and `cast_dfm()` (converting to a `dfm` object from quanteda).
 
-As shown in Figure \@ref(fig:tidyflowchartch5), a DTM is typically comparable to a tidy data frame after a `count` or a `group_by`/`summarize` that contains counts or another statistic for each combination of a term and document.
+As shown in Figure @fig-tidyflowchartch5, a DTM is typically comparable to a tidy data frame after a `count` or a `group_by`/`summarize` that contains counts or another statistic for each combination of a term and document.
 
 ### 将 DocumentTermMatrix 对象 tidy 化
 
@@ -73,7 +73,7 @@ Notice that we now have a tidy three-column `tbl_df`, with variables `document`,
 Notice that only the non-zero values are included in the tidied output: document 1 includes terms such as "adding" and "adult", but not "aaron" or "abandon". This means the tidied version has no rows where `count` is zero.
 ```
 
-As we've seen in previous chapters, this form is convenient for analysis with the dplyr, tidytext and ggplot2 packages. For example, you can perform sentiment analysis on these newspaper articles with the approach described in Chapter \@ref(sentiment).
+As we've seen in previous chapters, this form is convenient for analysis with the dplyr, tidytext and ggplot2 packages. For example, you can perform sentiment analysis on these newspaper articles with the approach described in Chapter @sec-sentiment.
 
 ```{r apsentiments, dependson = "ap_td"}
 ap_sentiments <- ap_td %>%
@@ -82,7 +82,7 @@ ap_sentiments <- ap_td %>%
 ap_sentiments
 ```
 
-This would let us visualize which words from the AP articles most often contributed to positive or negative sentiment, seen in Figure \@ref(fig:apsentimentplot). We can see that the most common positive words include "like", "work", "support", and "good", while the most negative words include "killed", "death", and "vice". (The inclusion of "vice" as a negative term is probably a mistake on the algorithm's part, since it likely usually refers to "vice president").
+This would let us visualize which words from the AP articles most often contributed to positive or negative sentiment, seen in Figure @fig-apsentimentplot. We can see that the most common positive words include "like", "work", "support", and "good", while the most negative words include "killed", "death", and "vice". (The inclusion of "vice" as a negative term is probably a mistake on the algorithm's part, since it likely usually refers to "vice president").
 
 ```{r apsentimentplot, dependson = "apsentiments", fig.height = 6, fig.width = 7, fig.cap = "Words from AP articles with the greatest contribution to positive or negative sentiments, using the Bing sentiment lexicon."}
 library(ggplot2)
@@ -119,7 +119,7 @@ inaug_td <- tidy(inaug_dfm)
 inaug_td
 ```
 
-We may be interested in finding the words most specific to each of the inaugural speeches. This could be quantified by calculating the tf-idf of each term-speech pair using the `bind_tf_idf()` function, as described in Chapter \@ref(tfidf).
+We may be interested in finding the words most specific to each of the inaugural speeches. This could be quantified by calculating the tf-idf of each term-speech pair using the `bind_tf_idf()` function, as described in Chapter @sec-tfidf.
 
 ```{r presidents, dependson = "inaug_td", fig.width = 8, fig.height = 8}
 inaug_tf_idf <- inaug_td %>%
@@ -129,7 +129,7 @@ inaug_tf_idf <- inaug_td %>%
 inaug_tf_idf
 ```
 
-We could use this data to pick four notable inaugural addresses (from Presidents Lincoln, Roosevelt, Kennedy, and Obama), and visualize the words most specific to each speech, as shown in Figure \@ref(fig:presidentspeeches).
+We could use this data to pick four notable inaugural addresses (from Presidents Lincoln, Roosevelt, Kennedy, and Obama), and visualize the words most specific to each speech, as shown in Figure @fig-presidentspeeches.
 
 ```{r presidentspeeches, dependson = "presidents", echo = FALSE, fig.cap = "The terms with the highest tf-idf from each of four selected inaugural addresses. Note that quanteda's tokenizer includes the '?' punctuation mark as a term, though the texts we've tokenized ourselves with unnest_tokens do not.", fig.height=7, fig.width=6}
 speeches <- c("1933-Roosevelt", "1861-Lincoln",
@@ -165,7 +165,7 @@ year_term_counts <- inaug_td %>%
   mutate(year_total = sum(count))
 ```
 
-This lets us pick several words and visualize how they changed in frequency over time, as shown in \@ref(fig:yearterm). We can see that over time, American presidents became less likely to refer to the country as the "Union" and more likely to refer to "America". They also became less likely to talk about the "constitution" and foreign" countries, and more likely to mention "freedom" and "God".
+This lets us pick several words and visualize how they changed in frequency over time, as shown in @fig-yearterm. We can see that over time, American presidents became less likely to refer to the country as the "Union" and more likely to refer to "America". They also became less likely to talk about the "constitution" and foreign" countries, and more likely to mention "freedom" and "God".
 
 ```{r yearterm, dependson = "year_term_counts", fig.cap = "Changes in word frequency over time within Presidential inaugural addresses, for six selected terms"}
 year_term_counts %>%
@@ -180,7 +180,7 @@ year_term_counts %>%
 
 These examples show how you can use tidytext, and the related suite of tidy tools, to analyze sources even if their origin was not in a tidy format.
 
-## 将 tidy 文本数据投射至矩阵 {#cast-dtm}
+## 将 tidy 文本数据投射至矩阵 {#sec-cast-dtm}
 
 Just as some existing text mining packages provide document-term matrices as sample data or output, some algorithms expect such matrices as input. Therefore, tidytext provides `cast_` verbs for converting from a tidy form to these matrices.
 
@@ -224,7 +224,7 @@ austen_dtm <- austen_books() %>%
 austen_dtm
 ```
 
-This casting process allows for reading, filtering, and processing to be done using dplyr and other tidy tools, after which the data can be converted into a document-term matrix for machine learning applications. In Chapter \@ref(topicmodeling), we'll examine some examples where a tidy-text dataset has to be converted into a DocumentTermMatrix for processing.
+This casting process allows for reading, filtering, and processing to be done using dplyr and other tidy tools, after which the data can be converted into a document-term matrix for machine learning applications. In Chapter @sec-topicmodeling, we'll examine some examples where a tidy-text dataset has to be converted into a DocumentTermMatrix for processing.
 
 ## 将带有元数据的语料对象 tidy 化
 
@@ -268,7 +268,7 @@ acq_tokens %>%
   arrange(desc(tf_idf))
 ```
 
-### 示例：挖掘金融类文章 {#financial}
+### 示例：挖掘金融类文章 {#sec-financial}
 
 `Corpus` objects are a common output format for data ingesting packages, which means the `tidy()` function gives us access to a wide variety of text data. One example is [tm.plugin.webmining](https://cran.r-project.org/package=tm.plugin.webmining), which connects to online feeds to retrieve news articles based on a keyword. For instance, performing `WebCorpus(GoogleFinanceSource("NASDAQ:MSFT"))` allows us to retrieve the 20 most recent articles related to the Microsoft (MSFT) stock.
 
@@ -329,7 +329,7 @@ stock_tf_idf <- stock_tokens %>%
   arrange(-tf_idf)
 ```
 
-The top terms for each are visualized in Figure \@ref(fig:stocktfidf). As we'd expect, the company's name and symbol are typically included, but so are several of their product offerings and executives, as well as companies they are making deals with (such as Disney with Netflix).
+The top terms for each are visualized in Figure @fig-stocktfidf. As we'd expect, the company's name and symbol are typically included, but so are several of their product offerings and executives, as well as companies they are making deals with (such as Disney with Netflix).
 
 ```{r stocktfidf, dependson = "stocktfidfdata", echo = FALSE, fig.cap = "The 8 words with the highest tf-idf in recent articles specific to each company", fig.height = 8, fig.width = 8}
 stock_tf_idf %>%
@@ -345,7 +345,7 @@ stock_tf_idf %>%
        y = "tf-idf")
 ```
 
-If we were interested in using recent news to analyze the market and make investment decisions, we'd likely want to use sentiment analysis to determine whether the news coverage was positive or negative. Before we run such an analysis, we should look at what words would contribute the most to positive and negative sentiments, as was shown in Chapter \@ref(most-positive-negative). For example, we could examine this within the AFINN lexicon (Figure \@ref(fig:stockafinn)).
+If we were interested in using recent news to analyze the market and make investment decisions, we'd likely want to use sentiment analysis to determine whether the news coverage was positive or negative. Before we run such an analysis, we should look at what words would contribute the most to positive and negative sentiments, as was shown in Chapter @sec-most-positive-negative. For example, we could examine this within the AFINN lexicon (Figure @fig-stockafinn).
 
 ```{r stockafinn, dependson = "stock_articles", fig.cap = "The words with the largest contribution to sentiment values in recent financial articles, according to the AFINN dictionary. The 'contribution' is the product of the word and the sentiment value."}
 load("data/afinn.rda")
@@ -385,7 +385,7 @@ stock_tokens %>%
   ylab("Frequency of this word in the recent financial articles")
 ```
 
-These assignments (Figure \@ref(fig:stockloughransentiments)) of words to sentiments look more reasonable: common positive words include "strong" and "better", but not "shares" or "growth", while negative words include "volatility" but not "fool". The other sentiments look reasonable as well: the most common "uncertainty" terms include "could" and "may".
+These assignments (Figure @fig-stockloughransentiments) of words to sentiments look more reasonable: common positive words include "strong" and "better", but not "shares" or "growth", while negative words include "volatility" but not "fool". The other sentiments look reasonable as well: the most common "uncertainty" terms include "could" and "may".
 
 Now that we know we can trust the dictionary to approximate the articles' sentiments, we can use our typical methods for counting the number of uses of each sentiment-associated word in each corpus.
 
@@ -398,7 +398,7 @@ stock_sentiment_count <- stock_tokens %>%
 stock_sentiment_count
 ```
 
-It might be interesting to examine which company has the most news with "litigious" or "uncertain" terms. But the simplest measure, much as it was for most analysis in Chapter \@ref(sentiment), is to see whether the news is more positive or negative. As a general quantitative measure of sentiment, we'll use "(positive - negative) / (positive + negative)" (Figure \@ref(fig:stockpositivity)).
+It might be interesting to examine which company has the most news with "litigious" or "uncertain" terms. But the simplest measure, much as it was for most analysis in Chapter @sec-sentiment, is to see whether the news is more positive or negative. As a general quantitative measure of sentiment, we'll use "(positive - negative) / (positive + negative)" (Figure @fig-stockpositivity).
 
 ```{r stockpositivity, fig.cap = "\"Positivity\" of the news coverage around each stock in January 2017, calculated as (positive - negative) / (positive + negative), based on uses of positive and negative words in 20 recent news articles about each company"}
 stock_sentiment_count %>%

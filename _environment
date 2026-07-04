@@ -2,3 +2,6 @@
 # 让 Quarto 的 jupyter 引擎用本项目 uv 管理的 venv，而非 PATH 上的 python。
 # 相对路径以项目根为基准，迁移目录/换机不影响。
 QUARTO_PYTHON=.venv/Scripts/python.exe
+# execute:false 验证期间，让 .Rprofile 把 knitr 内联 R 出错时静默返回空。
+# 开执行后删除此行，内联 R 恢复正常求值。
+TIDY_TEXT_NOEXEC=1

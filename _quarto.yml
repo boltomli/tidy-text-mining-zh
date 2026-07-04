@@ -1,2 +1,76 @@
 project:
-  type: default
+  type: book
+  output-dir: _book
+  execute-dir: project
+  # 让 Quarto 的 jupyter 引擎用本项目 .venv（相对路径，随项目迁移）
+  # 见 _environment 文件：QUARTO_PYTHON=.venv/Scripts/python.exe
+
+book:
+  title: "Text Mining with R"
+  subtitle: "A Tidy Approach (for Chinese Text)"
+  author: "Julia Silge, David Robinson, Song Li"
+  date: today
+  date-format: "YYYY-MM-DD"
+  description: "A guide to text analysis within the tidy data framework, using the tidytext package and other tidy tools, for Chinese text."
+  cover-image: images/cover.png
+  repo-url: https://github.com/boltomli/tidy-text-mining-zh
+  repo-actions: [edit, source, issue]
+  chapters:
+    - index.Rmd
+    - 01-tidy-text.Rmd
+    - 02-sentiment-analysis.Rmd
+    - 03-tf-idf.Rmd
+    - 04-word-combinations.Rmd
+    - 05-document-term-matrices.Rmd
+    - 06-topic-models.Rmd
+    - 10-references.Rmd
+
+bibliography: [book.bib, packages.bib]
+biblio-style: apalike
+link-citations: true
+
+lang: zh
+
+format:
+  html:
+    theme: cosmo
+    css: css/style.css
+    include-in-header: _includes/analytics.html
+    toc: true
+    toc-depth: 3
+    downloads: [pdf, epub]
+    fig-format: retina
+  pdf:
+    documentclass: ctexbook
+    classoption: [b5paper]
+    geometry:
+      - tmargin=2.5cm
+      - bmargin=2.5cm
+      - lmargin=3.5cm
+      - rmargin=2.5cm
+    include-in-header: latex/preamble.tex
+    include-before-body: latex/before_body.tex
+    include-after-body: latex/after_body.tex
+    keep-tex: true
+    latex-engine: xelatex
+    citation-package: natbib
+    toc-depth: 3
+    lof: true
+    lot: true
+    fig-format: pdf
+  epub:
+    stylesheet: css/style.css
+    cover-image: images/cover.png
+
+execute:
+  engine: knitr
+  # R 未装齐重型包时先关执行，只验证书籍结构/配置/交叉引用/callout；
+  # R 包装好后改回 true（或删除此项）以生成图表。
+  enabled: false
+  cache: true
+  warning: false
+  message: false
+
+language:
+  ui:
+    edit: "编辑"

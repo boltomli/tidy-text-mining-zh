@@ -1,4 +1,4 @@
-# 词间关系：n元组（n-grams）及相关度 {#ngrams}
+# 词间关系：n元组（n-grams）及相关度 {#sec-ngrams}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -54,7 +54,7 @@ bigrams %>%
   count(bigram, sort = TRUE)
 ```
 
-As one might expect, a lot of the most common bigrams are pairs of common (uninteresting) words, such as `of the` and `to be`: what we call "stop-words" (see Chapter \@ref(tidytext)). This is a useful time to use tidyr's `separate()`, which splits a column into multiple based on a delimiter. This lets us separate it into two columns, "word1" and "word2", at which point we can remove cases where either is a stop-word.
+As one might expect, a lot of the most common bigrams are pairs of common (uninteresting) words, such as `of the` and `to be`: what we call "stop-words" (see Chapter @sec-tidytext). This is a useful time to use tidyr's `separate()`, which splits a column into multiple based on a delimiter. This lets us separate it into two columns, "word1" and "word2", at which point we can remove cases where either is a stop-word.
 
 ```{r bigram_counts, dependson = "bigrams"}
 library(tidyr)
@@ -102,7 +102,7 @@ bigrams_filtered %>%
   count(book, word1, sort = TRUE)
 ```
 
-A bigram can also be treated as a term in a document in the same way that we treated individual words. For example, we can look at the tf-idf (Chapter \@ref(tfidf)) of bigrams across Austen novels. These tf-idf values can be visualized within each book, just as we did for words (Figure \@ref(fig:bigramtfidf)).
+A bigram can also be treated as a term in a document in the same way that we treated individual words. For example, we can look at the tf-idf (Chapter @sec-tfidf) of bigrams across Austen novels. These tf-idf values can be visualized within each book, just as we did for words (Figure @fig-bigramtfidf).
 
 ```{r bigram_tf_idf, dependson = "bigram_counts"}
 bigram_tf_idf <- bigrams_united %>%
@@ -130,13 +130,13 @@ bigram_tf_idf %>%
        x = "")
 ```
 
-Much as we discovered in Chapter \@ref(tfidf), the units that distinguish each Austen book are almost exclusively names. We also notice some pairings of a common verb and a name, such as "replied elizabeth" in Pride & Prejudice, or "cried emma" in Emma.
+Much as we discovered in Chapter @sec-tfidf, the units that distinguish each Austen book are almost exclusively names. We also notice some pairings of a common verb and a name, such as "replied elizabeth" in Pride & Prejudice, or "cried emma" in Emma.
 
 There are advantages and disadvantages to examining the tf-idf of bigrams rather than individual words. Pairs of consecutive words might capture structure that isn't present when one is just counting single words, and may provide context that makes tokens more understandable (for example, "pulteney street", in Northanger Abbey, is more informative than "pulteney"). However, the per-bigram counts are also *sparser*: a typical two-word pair is rarer than either of its component words. Thus, bigrams can be especially useful when you have a very large text dataset.
 
 ### 使用二元组为情感分析提供上下文
 
-Our sentiment analysis approach in Chapter \@ref(sentiment) simply counted the appearance of positive or negative words, according to a reference lexicon. One of the problems with this approach is that a word's context can matter nearly as much as its presence. For example, the words "happy" and "like" will be counted as positive, even in a sentence like "I'm not **happy** and I don't **like** it!"
+Our sentiment analysis approach in Chapter @sec-sentiment simply counted the appearance of positive or negative words, according to a reference lexicon. One of the problems with this approach is that a word's context can matter nearly as much as its presence. For example, the words "happy" and "like" will be counted as positive, even in a sentence like "I'm not **happy** and I don't **like** it!"
 
 Now that we have the data organized into bigrams, it's easy to tell how often words are preceded by a word like "not":
 
@@ -173,7 +173,7 @@ not_words
 
 For example, the most common sentiment-associated word to follow "not" was "like", which would normally have a (positive) score of 2.
 
-It's worth asking which words contributed the most in the "wrong" direction. To compute that, we can multiply their value by the number of times they appear (so that a word with a value of +3 occurring 10 times has as much impact as a word with a sentiment value of +1 occurring 30 times). We visualize the result with a bar plot (Figure \@ref(fig:notwordsplot)).
+It's worth asking which words contributed the most in the "wrong" direction. To compute that, we can multiply their value by the number of times they appear (so that a word with a value of +3 occurring 10 times has as much impact as a word with a sentiment value of +1 occurring 30 times). We visualize the result with a bar plot (Figure @fig-notwordsplot).
 
 ```{r notwordsplot, dependson = "not_words", fig.width=8, fig.height=6, fig.cap = "The 20 words preceded by 'not' that had the greatest contribution to sentiment values, in either a positive or negative direction"}
 library(ggplot2)
@@ -201,7 +201,7 @@ negated_words <- bigrams_separated %>%
   count(word1, word2, value, sort = TRUE)
 ```
 
-We could then visualize what the most common words to follow each particular negation are (Figure \@ref(fig:negatedwords)). While "not like" and "not help" are still the two most common examples, we can also see pairings such as "no great" and "never loved." We could combine this with the approaches in Chapter \@ref(sentiment) to reverse the AFINN values of each word that follows a negation. These are just a few examples of how finding consecutive words can give context to text mining methods.
+We could then visualize what the most common words to follow each particular negation are (Figure @fig-negatedwords). While "not like" and "not help" are still the two most common examples, we can also see pairings such as "no great" and "never loved." We could combine this with the approaches in Chapter @sec-sentiment to reverse the AFINN values of each word that follows a negation. These are just a few examples of how finding consecutive words can give context to text mining methods.
 
 ```{r negatedwords, dependson = "negated_words", fig.width=9, fig.height=9, echo = FALSE, fig.cap = "The most common positive or negative words to follow negations such as 'never', 'no', 'not', and 'without'"}
 negated_words %>%
@@ -255,9 +255,9 @@ ggraph(bigram_graph, layout = "fr") +
   geom_node_text(aes(label = name), vjust = 1, hjust = 1)
 ```
 
-In Figure \@ref(fig:bigramgraph), we can visualize some details of the text structure. For example, we see that salutations such as "miss", "lady", "sir", "and "colonel" form common centers of nodes, which are often followed by names. We also see pairs or triplets along the outside that form common short phrases ("half hour", "thousand pounds", or "short time/pause").
+In Figure @fig-bigramgraph, we can visualize some details of the text structure. For example, we see that salutations such as "miss", "lady", "sir", "and "colonel" form common centers of nodes, which are often followed by names. We also see pairs or triplets along the outside that form common short phrases ("half hour", "thousand pounds", or "short time/pause").
 
-We conclude with a few polishing operations to make a better looking graph (Figure \@ref(fig:bigramggraphausten2)):
+We conclude with a few polishing operations to make a better looking graph (Figure @fig-bigramggraphausten2):
 
 * We add the `edge_alpha` aesthetic to the link layer to make links transparent based on how common or rare the bigram is
 * We add directionality with an arrow, constructed using `grid::arrow()`, including an `end_cap` option that tells the arrow to end before touching the node
@@ -347,7 +347,7 @@ kjv_bigrams %>%
   visualize_bigrams()
 ```
 
-Figure \@ref(fig:kjvbigrams) thus lays out a common "blueprint" of language within the Bible, particularly focused around "thy" and "thou" (which could probably be considered stopwords!) You can use the gutenbergr package and these `count_bigrams`/`visualize_bigrams` functions to visualize bigrams in other classic books you're interested in.
+Figure @fig-kjvbigrams thus lays out a common "blueprint" of language within the Bible, particularly focused around "thy" and "thou" (which could probably be considered stopwords!) You can use the gutenbergr package and these `count_bigrams`/`visualize_bigrams` functions to visualize bigrams in other classic books you're interested in.
 
 ## 用 widyr 包计算和关联词对
 
@@ -359,11 +359,11 @@ Tidy data is a useful structure for comparing between variables or grouping by r
 knitr::include_graphics("images/widyr.jpg")
 ```
 
-We'll examine some of the ways tidy text can be turned into a wide matrix in Chapter \@ref(dtm), but in this case it isn't necessary. The [widyr](https://github.com/dgrtwo/widyr) package makes operations such as computing counts and correlations easy, by simplifying the pattern of "widen data, perform an operation, then re-tidy data" (Figure \@ref(fig:widyr)). We'll focus on a set of functions that make pairwise comparisons between groups of observations (for example, between documents, or sections of text).
+We'll examine some of the ways tidy text can be turned into a wide matrix in Chapter @sec-dtm, but in this case it isn't necessary. The [widyr](https://github.com/dgrtwo/widyr) package makes operations such as computing counts and correlations easy, by simplifying the pattern of "widen data, perform an operation, then re-tidy data" (Figure @fig-widyr). We'll focus on a set of functions that make pairwise comparisons between groups of observations (for example, between documents, or sections of text).
 
 ### 在段落间计算和关联
 
-Consider the book "Pride and Prejudice" divided into 10-line sections, as we did (with larger sections) for sentiment analysis in Chapter \@ref(sentiment). We may be interested in what words tend to appear within the same section.
+Consider the book "Pride and Prejudice" divided into 10-line sections, as we did (with larger sections) for sentiment analysis in Chapter @sec-sentiment. We may be interested in what words tend to appear within the same section.
 
 ```{r section_words}
 library(stringi)
@@ -397,7 +397,7 @@ word_pairs %>%
   filter(item1 == "pao")
 ```
 
-### 词对的相关度 {#pairwise-correlation}
+### 词对的相关度 {#sec-pairwise-correlation}
 
 Pairs like "Elizabeth" and "Darcy" are the most common co-occurring words, but that's not particularly meaningful since *they're also the most common individual words.* We may instead want to examine **correlation** among words, which indicates how often they appear together relative to how often they appear separately.
 
@@ -437,7 +437,7 @@ word_cors %>%
   filter(item1 == "ounces")
 ```
 
-This lets us pick particular interesting words and find the other words most associated with them (Figure \@ref(fig:wordcors)).
+This lets us pick particular interesting words and find the other words most associated with them (Figure @fig-wordcors).
 
 ```{r wordcors, dependson = "word_cors", fig.height = 8, fig.width = 8, fig.cap = "Words from Pride and Prejudice that were most correlated with 'elizabeth', 'pounds', 'married', and 'pride'"}
 word_cors %>%
@@ -452,7 +452,7 @@ word_cors %>%
   coord_flip()
 ```
 
-Just as we used ggraph to visualize bigrams, we can use it to visualize the correlations and clusters of words that were found by the widyr package (Figure \@ref(fig:wordcorsnetwork)).
+Just as we used ggraph to visualize bigrams, we can use it to visualize the correlations and clusters of words that were found by the widyr package (Figure @fig-wordcorsnetwork).
 
 ```{r wordcorsnetwork, dependson = "word_cors", fig.height = 8, fig.width = 8, fig.cap = "Pairs of words in Pride and Prejudice that show at least a .15 correlation of appearing within the same 10-line section"}
 set.seed(2016)

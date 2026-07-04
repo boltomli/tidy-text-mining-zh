@@ -1,4 +1,4 @@
-# 主题模型 {#topicmodeling}
+# 主题模型 {#sec-topicmodeling}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -27,7 +27,7 @@ theme_set(theme_zh)
 knitr::include_graphics("images/tidyflow-ch-6.png")
 ```
 
-如图 \@ref(fig:tidyflowchartch6) 所示，我们可以使用 tidy 文本原则得到主题模型，通过在全书中使用的同一套 tidy 工具。在本章中，我们将学习 [topicmodels 包](https://cran.r-project.org/package=topicmodels) [@R-topicmodels] 中的 `LDA` 对象，特别是将这些模型 tidy 化，以便在 ggplot2 和 dplyr 中加以操作。我们还将探索一个多本书籍章节聚类的例子，从中可以看到主题模型能基于文本内容“学习”到不同的书有何不同。
+如图 @fig-tidyflowchartch6 所示，我们可以使用 tidy 文本原则得到主题模型，通过在全书中使用的同一套 tidy 工具。在本章中，我们将学习 [topicmodels 包](https://cran.r-project.org/package=topicmodels) [@R-topicmodels] 中的 `LDA` 对象，特别是将这些模型 tidy 化，以便在 ggplot2 和 dplyr 中加以操作。我们还将探索一个多本书籍章节聚类的例子，从中可以看到主题模型能基于文本内容“学习”到不同的书有何不同。
 
 ## 隐含狄利克雷分布
 
@@ -38,7 +38,7 @@ knitr::include_graphics("images/tidyflow-ch-6.png")
 
 LDA 是同时估算这两件事的数学方法：找到与每个主题相关联的词的混合，同时确定描述每个文档的主题的混合。这个算法的实现已经有很多种，我们将深度探索其中之一。
 
-在章 \@ref(dtm) 中我们简要地介绍了 topicmodels 包提供的 `AssociatedPress` 数据集作为 DocumentTermMatrix 的一个例子。这是一个2246篇新闻文章的集合，来自美国的一个通讯社，主要发表于1988年前后。
+在章 @sec-dtm 中我们简要地介绍了 topicmodels 包提供的 `AssociatedPress` 数据集作为 DocumentTermMatrix 的一个例子。这是一个2246篇新闻文章的集合，来自美国的一个通讯社，主要发表于1988年前后。
 
 ```{r}
 library(topicmodels)
@@ -65,7 +65,7 @@ ap_lda
 
 ### 词-主题概率
 
-在章 \@ref(dtm) 中我们介绍了 `tidy()` 方法，最初来自 broom 包 [@R-broom]，可以将模型对象 tidy 化。tidytext 包提供这个方法从模型中提取每主题每词的概率，称为 $\beta$（beta）。
+在章 @sec-dtm 中我们介绍了 `tidy()` 方法，最初来自 broom 包 [@R-broom]，可以将模型对象 tidy 化。tidytext 包提供这个方法从模型中提取每主题每词的概率，称为 $\beta$（beta）。
 
 ```{r ap_topics}
 library(tidytext)
@@ -76,7 +76,7 @@ ap_topics
 
 注意这把模型变成了一个主题每术语每行的格式。对于每个组合，模型计算了该术语来自该主题的概率。比如，术语 `r ap_topics$term[1]` 有 $`r ap_topics$beta[1]`$ 概率来自主题 `r ap_topics$topic[1]`，而有 $`r ap_topics$beta[2]`$ 概率来自主题 `r ap_topics$topic[2]`。
 
-我们可以使用 dplyr 的 `top_n()` 列出每个主题最常见的10个术语。作为一个 tidy 数据框，这很容易由 ggplot2 可视化（图 \@ref(fig:aptoptermsplot)）。
+我们可以使用 dplyr 的 `top_n()` 列出每个主题最常见的10个术语。作为一个 tidy 数据框，这很容易由 ggplot2 可视化（图 @fig-aptoptermsplot）。
 
 ```{r aptoptermsplot, dependson = "ap_topics", fig.height=5, fig.width=7, fig.cap = "每个主题中这些术语最常见"}
 ap_top_terms <- ap_topics %>%
@@ -105,11 +105,9 @@ beta_spread <- ap_topics %>%
 beta_spread
 ```
 
-在两个主题中距离最大的词见图 \@ref(fig:topiccompare)。
+在两个主题中距离最大的词见图 @fig-topiccompare。
 
-(ref:topiccap) 主题2与主题1 $\beta$ 差值最大的词
-
-```{r topiccompare, dependson = "beta_spread", fig.cap = "(ref:topiccap)", echo = FALSE}
+```{r topiccompare, dependson = "beta_spread", fig.cap = "主题2与主题1 $\\beta$ 差值最大的词", echo = FALSE}
 beta_spread %>%
   group_by(direction = log_ratio > 0) %>%
   top_n(10, abs(log_ratio)) %>%
@@ -134,7 +132,7 @@ ap_documents
 
 这里的每一个值都是一个估算的来自该文档的词有多大比例来自该主题。比如，模型估算文档 `r ap_documents$document[1]` 中大约 `r ap_documents$gamma[1]` 的词来自主题 `r ap_documents$topic[1]`。
 
-我们可以看到这些文档中很多都是两个主题的混合，但文档6几乎全部来自主题2，来自主题1的 $\gamma$ 接近0。要检验这个答案，我们可以 `tidy()` 其文档-术语矩阵（见章 \@ref(tidy-dtm)）并检查该文档中最常见的词。
+我们可以看到这些文档中很多都是两个主题的混合，但文档6几乎全部来自主题2，来自主题1的 $\gamma$ 接近0。要检验这个答案，我们可以 `tidy()` 其文档-术语矩阵（见章 @sec-tidy-dtm）并检查该文档中最常见的词。
 
 ```{r ap_document_6}
 tidy(AssociatedPress) %>%
@@ -144,7 +142,7 @@ tidy(AssociatedPress) %>%
 
 基于最常见的词，看起来这篇文章是关于美国政府与巴拿马当时的统治者 Noriega 的，这意味着算法正确地把它分在了主题2中（政治新闻）。
 
-## 例：图书馆大捣乱 {#library-heist}
+## 例：图书馆大捣乱 {#sec-library-heist}
 
 要检查一个统计方法，很有用的办法是在一个很简单的例子上尝试使用，而且你知道“正确答案”。比如，我们可以收集一组文档，恰好属于6个相互分离的主题，然后运行主题模型，看看算法能否正确区分出6个组。这可以让我们确认方法是有效的，并且感知到其如何运作，何时又会失效。我们用来自古典文学的一些数据进行尝试。
 
@@ -156,7 +154,7 @@ tidy(AssociatedPress) %>%
 
 这个强盗把书沿章回的边缘撕开堆成了一堆。我们怎么才能把这些杂乱的章节按原书整理好呢？这个问题具有挑战性，因为每个单章都 **无标注**：我们不知道什么词可以用来分组。因此我们使用主题模型来发现章如何聚类为可分辨的主题，每个主题（想必）就代表一本书。
 
-我们用章 \@ref(tfidf) 中介绍的 gutenbergr 包获取文本。
+我们用章 @sec-tfidf 中介绍的 gutenbergr 包获取文本。
 
 ```{r titles}
 titles <- c("水滸傳", "西遊記", "紅樓夢",
@@ -201,7 +199,7 @@ word_counts
 
 ### 按章得到 LDA
 
-现在我们的 `word_counts` 数据框为 tidy 形式，每行每文档一个术语，但 topicmodels 包需要一个 `DocumentTermMatrix`。如在章 \@ref(cast-dtm) 中所叙述的，我们可以用 tidytext 的 `cast_dtm()` 把一个每行一个符号的表格映射为 `DocumentTermMatrix`。
+现在我们的 `word_counts` 数据框为 tidy 形式，每行每文档一个术语，但 topicmodels 包需要一个 `DocumentTermMatrix`。如在章 @sec-cast-dtm 中所叙述的，我们可以用 tidytext 的 `cast_dtm()` 把一个每行一个符号的表格映射为 `DocumentTermMatrix`。
 
 ```{r chapters_dtm}
 chapters_dtm <- word_counts %>%
@@ -236,7 +234,7 @@ top_terms <- chapter_topics %>%
 top_terms
 ```
 
-这个 tidy 输出可直接进行 ggplot2 可视化（图 \@ref(fig:toptermsplot)）。
+这个 tidy 输出可直接进行 ggplot2 可视化（图 @fig-toptermsplot）。
 
 ```{r toptermsplot, fig.height=6, fig.width=7, fig.cap = "每个主题中最常见的术语"}
 top_terms %>%
@@ -249,7 +247,7 @@ top_terms %>%
 
 有些主题很清晰地与不同书联系了起来！“賈”属于《紅樓夢》，“行者”应该属于《西遊記》等。我们还可注意到，既然 LDA 属于“模糊聚类”方法，有些词为多个主题共有，如“道”“有”“人”等。
 
-### 按文档分类 {#per-document}
+### 按文档分类 {#sec-per-document}
 
 此分析中的每个文档都表示了一个单章。因此，我们可能想要知道每个文档关联哪个主题。我们能把章放回到正确的书里吗？我们可以查看每主题每文档概率，$\gamma$（gamma）。
 
@@ -262,7 +260,7 @@ chapters_gamma
 
 现在有了主题概率，可以看看我们的无监督学习区分6本书的表现如何。我们预期一本书中的每章基本（或全部）出现在生成的对应主题中。
 
-首先我们再把文档名拆分成书名与章回，然后绘制每主题每文档概率图 \@ref(fig:chaptersldagamma)。
+首先我们再把文档名拆分成书名与章回，然后绘制每主题每文档概率图 @fig-chaptersldagamma。
 
 ```{r chapters_gamma}
 chapters_gamma <- chapters_gamma %>%
@@ -270,9 +268,7 @@ chapters_gamma <- chapters_gamma %>%
 chapters_gamma
 ```
 
-(ref:chaptersldagammacap) 每本书中每章的 $\gamma$ 概率
-
-```{r chaptersldagamma, fig.width=8, fig.height=8, fig.cap = "(ref:chaptersldagammacap)"}
+```{r chaptersldagamma, fig.width=8, fig.height=8, fig.cap = "每本书中每章的 $\\gamma$ 概率"}
 # reorder titles in order of topic 1, topic 2, etc before plotting
 chapters_gamma %>%
   mutate(title = reorder(title, gamma * topic)) %>%
@@ -337,7 +333,7 @@ assignments <- assignments %>%
 assignments
 ```
 
-这个真实书名（`title`）和被分配的书名（`consensus`）的组合对进一步探索很有用。例如我们可以绘制 **混淆矩阵**，显示一本书里的词有多经常被分配给另一本，使用 dplyr 的 `count()` 和 ggplot2 的 `geom_tile`（图 \@ref(fig:confusionmatrix)。
+这个真实书名（`title`）和被分配的书名（`consensus`）的组合对进一步探索很有用。例如我们可以绘制 **混淆矩阵**，显示一本书里的词有多经常被分配给另一本，使用 dplyr 的 `count()` 和 ggplot2 的 `geom_tile`（图 @fig-confusionmatrix。
 
 ```{r confusionmatrix, dependson = "assignments2", fig.width = 10, fig.height = 8, fig.cap = "展示 LDA 对每本书中的词进行分配的混淆矩阵。表格的每行代表词来自原书，每列代表被分配的书。"}
 assignments %>%

@@ -14,3 +14,5 @@ reanalysis-hongloumeng.R
 
 /.quarto/
 **/*.quarto_ipynb
+# knitr 缓存目录
+*_cache/

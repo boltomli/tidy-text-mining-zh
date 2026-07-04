@@ -1,6 +1,6 @@
 \mainmatter
 
-# tidy 文本格式 {#tidytext}
+# tidy 文本格式 {#sec-tidytext}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -28,9 +28,9 @@ Tidy 数据集可以使用一组标准的 “tidy” 工具进行操作，包括
 
 * **字符串**：文本当然可以用字符串存储，也就是 R 中的字符向量，这种形式的文本数据一般会先读进内存。
 * **语料**：这些种类的典型对象包含了原始的字符串，并带有额外的元数据和细节标注等。
-* **文档-术语矩阵**：这是一个稀疏矩阵，描述了文档的一个集合（即一组语料），每个文档一行，每个术语一列。矩阵中的典型数据为词的个数或 tf-idf（见章 \@ref(tfidf)）。
+* **文档-术语矩阵**：这是一个稀疏矩阵，描述了文档的一个集合（即一组语料），每个文档一行，每个术语一列。矩阵中的典型数据为词的个数或 tf-idf（见章 @sec-tfidf）。
 
-暂时先不探索语料和文档-术语矩阵对象，章 \@ref(dtm) 将会讲到。这里我们从将文本转换成 tidy 格式的基础开始。
+暂时先不探索语料和文档-术语矩阵对象，章 @sec-dtm 将会讲到。这里我们从将文本转换成 tidy 格式的基础开始。
 
 ## `unnest_tokens` 函数
 
@@ -89,13 +89,13 @@ text_df %>%
 * 标点会被去掉。
 * 默认情况下，`unnest_tokens()` 把符号转换为小写字符，这是为了更方便与其它数据集比较或合并（用 `to_lower = FALSE` 参数可关闭这个行为）。
 
-有了这种格式的数据，我们可以使用标准的 tidy 工具套装进行操作、处理和可视化，即 dplyr、tidyr 和 ggplot2。如图 \@ref(fig:tidyflow-ch1) 所示。
+有了这种格式的数据，我们可以使用标准的 tidy 工具套装进行操作、处理和可视化，即 dplyr、tidyr 和 ggplot2。如图 @fig-tidyflow-ch1 所示。
 
 ```{r tidyflow-ch1, echo = FALSE, out.width = '100%', fig.cap = "使用 tidy 数据原则进行文本分析的典型流程图"}
 knitr::include_graphics("images/tidyflow-ch-1.png")
 ```
 
-## 用 tidy 处理名著 {#tidyworks}
+## 用 tidy 处理名著 {#sec-tidyworks}
 
 英文的例子可使用 [janeaustenr](https://cran.r-project.org/package=janeaustenr) [@R-janeaustenr] 引入 Jane Austen 的六部完整已发表小说的文本，并可转换为 tidy 格式。janeaustenr 包提供的文本格式每行为书页里的一行，这个行严格对应着实体书里印刷的行。咱们从这里开始，依旧使用 `mutate()` 添加 `linenumber` 批注以记录原始格式里的行数，并且添加 `chapter` 批注（使用正则表达式）以找到所有的章节位置。
 
@@ -141,7 +141,7 @@ tidy_books %>%
   count(word, sort = TRUE) 
 ```
 
-因为我们一直在使用 tidy 工具，词的个数存在一个 tidy 数据框里。这让我们可以把它直接通过管道传给 ggplot2 包，例如创建一个最常见的词的可视化（图 \@ref(fig:plotcount)）。
+因为我们一直在使用 tidy 工具，词的个数存在一个 tidy 数据框里。这让我们可以把它直接通过管道传给 ggplot2 包，例如创建一个最常见的词的可视化（图 @fig-plotcount）。
 
 ```{r plotcount, dependson = "tidy_books", fig.width=6, fig.height=5, fig.cap="简·奥斯汀的小说中最常见的词"}
 tidy_books %>%
@@ -154,7 +154,7 @@ tidy_books %>%
   coord_flip()
 ```
 
-需要注意的是， `austen_books()` 函数恰好提供给了我们想要分析的数据，但其它情况下我们可能需要对文本数据进行清洗，比如去除版权信息或重新格式化。在案例分析的章节里将看到这种预处理的例子，特别是章 \@ref(pre-processing-text)。
+需要注意的是， `austen_books()` 函数恰好提供给了我们想要分析的数据，但其它情况下我们可能需要对文本数据进行清洗，比如去除版权信息或重新格式化。在案例分析的章节里将看到这种预处理的例子，特别是章 @sec-pre-processing-text。
 
 ## gutenbergr 包
 
@@ -170,7 +170,7 @@ gutenberg_works(languages = "zh")
 To learn more about gutenbergr, check out the [package's tutorial at rOpenSci](https://ropensci.org/tutorials/gutenbergr_tutorial.html), where it is one of rOpenSci's packages for data access.
 ```
 
-## 用 tidy 处理中文大作 {#tidyworks-zh}
+## 用 tidy 处理中文大作 {#sec-tidyworks-zh}
 
 笔者整理了一个类似 janeaustenr 的明清小说数据集 [mqxsr](https://github.com/boltomli/mingqingxiaoshuor) [@R-mqxsr]，我们可以从四大名著的文本开始。
 
@@ -197,7 +197,7 @@ tidy_mingqingxiaoshuo %>%
   count(word, sort = TRUE)
 ```
 
-图 \@ref(fig:plotcount-zh) 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。`showtext`内嵌的[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
+图 @fig-plotcount-zh 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。`showtext`内嵌的[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
 
 ```{r plotcount-zh, dependson = "tidy_mingqingxiaoshuo", fig.width=6, fig.height=5, fig.cap="四大名著中最常见的词"}
 library(showtext)
@@ -281,7 +281,7 @@ frequency <- bind_rows(mutate(tidy_zibuyu, author = "袁枚"),
 
 注释掉的行里 `str_extract()` 的用途是去掉下划线等，因为来自古登堡计划的UTF-8编码文本为了表示强调（*斜体*）在相应词的前后加了下划线，符号化的时候这些词不应该独立计数。在选用 `str_extract()` 之前做的初步数据探索中，“\_any\_”没有算成“any”。对于中文数据集，由于分词方法不同，这一步骤无需使用，相反需要考虑过滤掉英文和数字等，如其下一行代码所示。
 
-现在绘制图 \@ref(fig:plotcompare)。
+现在绘制图 @fig-plotcompare。
 
 ```{r plotcompare, dependson = "frequency", fig.width=10, fig.height=5.5, fig.cap="冯梦龙、袁枚与四大名著的作品词频比较"}
 library(scales)
@@ -302,7 +302,7 @@ ggplot(frequency, aes(x = proportion, y = `Various`, color = abs(`Various` - pro
 
 靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在四大名著和冯梦龙的文本中，而“不”“見”“上”同时高频出现在四大名著和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在四大名著-冯梦龙一侧的图中，诸如“寳玉”“大聖”这些词（全是人名和称谓）在四大名著文本中多见，而在冯梦龙文本中就不多，同时“東坡”在冯梦龙文本中更多见而非四大名著文本。
 
-整体来看，注意到在图 \@ref(fig:plotcompare) 中四大名著-冯梦龙侧比四大名著-袁枚侧更接近过零点的斜线。同时注意四大名著-冯梦龙侧的词向更低频扩展更多；四大名著-袁枚侧在低频词处有片空白区域。这些特征说明四大名著与冯梦龙用词比四大名著与袁枚用词更为接近。还可以看到并非所有词在全部三个文本集中都能找到，四大名著-袁枚侧的数据点偏少。
+整体来看，注意到在图 @fig-plotcompare 中四大名著-冯梦龙侧比四大名著-袁枚侧更接近过零点的斜线。同时注意四大名著-冯梦龙侧的词向更低频扩展更多；四大名著-袁枚侧在低频词处有片空白区域。这些特征说明四大名著与冯梦龙用词比四大名著与袁枚用词更为接近。还可以看到并非所有词在全部三个文本集中都能找到，四大名著-袁枚侧的数据点偏少。
 
 我们用相关度检验量化一下这些词频集的相似和不同的程度。四大名著与冯梦龙词频的相关度如何？四大名著与袁枚呢？
 

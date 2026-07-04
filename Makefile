@@ -1,17 +1,17 @@
 all: pdf epub html
 
-pdf: index.Rmd
-	Rscript -e 'bookdown::render_book("index.Rmd", output_format = "bookdown::pdf_book")'
+html:
+	quarto render --to html
 
-epub: index.Rmd
-	Rscript -e 'bookdown::render_book("index.Rmd", output_format = "bookdown::epub_book")'
+pdf:
+	quarto render --to pdf
 
-html: index.Rmd
-	Rscript -e 'bookdown::render_book("index.Rmd", output_format = "bookdown::gitbook")'
+epub:
+	quarto render --to epub
 
 deploy:
 	netlify deploy --prod
 
 .PHONY: clean
 clean:
-	rm -rf _book _bookdown_files
+	rm -rf _book

@@ -1,24 +1,3 @@
---- 
-title: "Text Mining with R"
-subtitle: "A Tidy Approach (for Chinese Text)"
-author: "Julia Silge, David Robinson, Song Li"
-date: "`r Sys.Date()`"
-documentclass: ctexbook
-bibliography: [book.bib, packages.bib]
-biblio-style: apalike
-link-citations: yes
-colorlinks: yes
-lot: yes
-lof: yes
-always_allow_html: yes
-geometry: [b5paper, tmargin=2.5cm, bmargin=2.5cm, lmargin=3.5cm, rmargin=2.5cm]
-knit: "bookdown::render_book"
-site: bookdown::bookdown_site
-description: "A guide to text analysis within the tidy data framework, using the tidytext package and other tidy tools, for Chinese text."
-github-repo: boltomli/tidy-text-mining-zh
-cover-image: images/cover.png
----
-
 ```{r setup, include=FALSE}
 options(
   htmltools.dir.version = FALSE, formatR.indent = 2, width = 55, digits = 4
@@ -56,27 +35,27 @@ This book serves as an introduction of text mining using the tidytext package an
 
 We start by introducing the tidy text format, and some of the ways dplyr, tidyr, and tidytext allow informative analyses of this structure.
 
-* **Chapter \@ref(tidytext)** outlines the tidy text format and the `unnest_tokens()` function. It also introduces the gutenbergr and janeaustenr packages, which provide useful literary text datasets that we'll use throughout this book.
-* **Chapter \@ref(sentiment)** shows how to perform sentiment analysis on a tidy text dataset, using the `sentiments` dataset from tidytext and `inner_join()` from dplyr.
-* **Chapter \@ref(tfidf)** describes the tf-idf statistic (term frequency times inverse document frequency), a quantity used for identifying terms that are especially important to a particular document.
-* **Chapter \@ref(ngrams)** introduces n-grams and how to analyze word networks in text using the widyr and ggraph packages.
+* **Chapter @sec-tidytext** outlines the tidy text format and the `unnest_tokens()` function. It also introduces the gutenbergr and janeaustenr packages, which provide useful literary text datasets that we'll use throughout this book.
+* **Chapter @sec-sentiment** shows how to perform sentiment analysis on a tidy text dataset, using the `sentiments` dataset from tidytext and `inner_join()` from dplyr.
+* **Chapter @sec-tfidf** describes the tf-idf statistic (term frequency times inverse document frequency), a quantity used for identifying terms that are especially important to a particular document.
+* **Chapter @sec-ngrams** introduces n-grams and how to analyze word networks in text using the widyr and ggraph packages.
 
 Text won't be tidy at all stages of an analysis, and it is important to be able to convert back and forth between tidy and non-tidy formats.
 
-* **Chapter \@ref(dtm)** introduces methods for tidying document-term matrices and corpus objects from the tm and quanteda packages, as well as for casting tidy text datasets into those formats.
-* **Chapter \@ref(topicmodeling)** explores the concept of topic modeling, and uses the `tidy()` method to interpret and visualize the output of the topicmodels package. 
+* **Chapter @sec-dtm** introduces methods for tidying document-term matrices and corpus objects from the tm and quanteda packages, as well as for casting tidy text datasets into those formats.
+* **Chapter @sec-topicmodeling** explores the concept of topic modeling, and uses the `tidy()` method to interpret and visualize the output of the topicmodels package. 
 
 We conclude with several case studies that bring together multiple tidy text mining approaches we've learned.
 
-* **Chapter \@ref(twitter)** demonstrates an application of a tidy text analysis by analyzing the authors' own Twitter archives. How do Dave's and Julia's tweeting habits compare?
-* **Chapter \@ref(nasa)** explores metadata from over 32,000 NASA datasets (available in JSON) by looking at how keywords from the datasets are connected to title and description fields.
-* **Chapter \@ref(usenet)** analyzes a dataset of Usenet messages from a diverse set of newsgroups (focused on topics like politics, hockey, technology, atheism, and more) to understand patterns across the groups.
+* **Chapter @sec-twitter** demonstrates an application of a tidy text analysis by analyzing the authors' own Twitter archives. How do Dave's and Julia's tweeting habits compare?
+* **Chapter @sec-nasa** explores metadata from over 32,000 NASA datasets (available in JSON) by looking at how keywords from the datasets are connected to title and description fields.
+* **Chapter @sec-usenet** analyzes a dataset of Usenet messages from a diverse set of newsgroups (focused on topics like politics, hockey, technology, atheism, and more) to understand patterns across the groups.
 
 ## Topics this book does not cover {-}
 
 This book serves as an introduction to the tidy text mining framework along with a collection of examples, but it is far from a complete exploration of natural language processing. The [CRAN Task View on Natural Language Processing](https://cran.r-project.org/web/views/NaturalLanguageProcessing.html) provides details on other ways to use R for computational linguistics. There are several areas that you may want to explore in more detail according to your needs.
 
-* **Clustering, classification, and prediction:** Machine learning on text is a vast topic that could easily fill its own volume. We introduce one method of unsupervised clustering (topic modeling) in Chapter \@ref(topicmodeling) but many more machine learning algorithms can be used in dealing with text.
+* **Clustering, classification, and prediction:** Machine learning on text is a vast topic that could easily fill its own volume. We introduce one method of unsupervised clustering (topic modeling) in Chapter @sec-topicmodeling but many more machine learning algorithms can be used in dealing with text.
 * **Word embedding:** One popular modern approach for text analysis is to map words to vector representations, which can then be used to examine linguistic relationships between words and to classify text. Such representations of words are not tidy in the sense that we consider here, but have found powerful applications in machine learning algorithms.
 * **More complex tokenization:** The tidytext package trusts the tokenizers package [@R-tokenizers] to perform tokenization, which itself wraps a variety of tokenizers with a consistent interface, but many others exist for specific applications.
 * **Languages other than English:** Some of our users have had success applying tidytext to their text mining needs for languages other than English, but we don't cover any such examples in this book.

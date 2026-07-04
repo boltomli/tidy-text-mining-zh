@@ -1,4 +1,4 @@
-# 用 tidy 数据进行情感分析 {#sentiment}
+# 用 tidy 数据进行情感分析 {#sec-sentiment}
 
 ```{r echo = FALSE}
 library(knitr)
@@ -12,7 +12,7 @@ library(ggplot2)
 theme_set(theme_light())
 ```
 
-前一章中，我们深入探索了何为 tidy 文本格式，并展示了如何在关于词频的问题中应用这一格式。我们可以分析文档中哪些词使用频率最高。现在我们来调查一个不同的主题，对倾向进行挖掘，即情感分析。当人类读者接触到一个文本，会对情感意图词汇进行推断，理解一段文本是正面还是负面的，或者归类于其它更细微的情感，如惊讶或恶心。我们可以用文本挖掘工具程序化地获得文本的情感内容，如图 \@ref(fig:tidyflow-ch2) 所示。
+前一章中，我们深入探索了何为 tidy 文本格式，并展示了如何在关于词频的问题中应用这一格式。我们可以分析文档中哪些词使用频率最高。现在我们来调查一个不同的主题，对倾向进行挖掘，即情感分析。当人类读者接触到一个文本，会对情感意图词汇进行推断，理解一段文本是正面还是负面的，或者归类于其它更细微的情感，如惊讶或恶心。我们可以用文本挖掘工具程序化地获得文本的情感内容，如图 @fig-tidyflow-ch2 所示。
 
 ```{r tidyflow-ch2, echo = FALSE, out.width = '100%', fig.cap = "典型的使用 tidy 文本进行情感分析的文本分析流程图"}
 knitr::include_graphics("images/tidyflow-ch-2.png")
@@ -46,13 +46,13 @@ get_sentiments("nrc")
 
 这些情感词典是怎么制作和校验的呢？要么使用众包（比如 Amazon Mechanical Turk）创建，要么是由作者创建，然后再用众包的组合进行校验，来自餐馆或电影的评价或 Twitter 数据。得到这个信息后，我们可能不愿把这些情感词典用在风格与校验文本相当不同的文本上，比如几百年前的叙事小说。然而，尽管把这些文本用在曹雪芹的小说上可能会得到整体上较不准确的结果，我们仍然可以评估文本与词典中相同的词的情感信息。
 
-也有一些领域相关的情感词典，使用特别的内容范畴的文本创建。节 \@ref(financial) 探索使用金融相关情感词典进行分析。
+也有一些领域相关的情感词典，使用特别的内容范畴的文本创建。节 @sec-financial 探索使用金融相关情感词典进行分析。
 
 ```{block, type = "rmdnote"}
 Dictionary-based methods like the ones we are discussing find the total sentiment of a piece of text by adding up the individual sentiment scores for each word in the text.
 ```
 
-词典并不包含全部英语词，因为很多英语词相当中性。要记住很重要的一点，这些方法没有考虑对词的修饰，如“不对”“不真实”等；基于词典的方法只基于一元组。对于很多种类的文本而言（如下面的叙事性文本示例），没有大段的讽刺或否定性描写，所以影响倒也不十分明显。而且，我们可以使用 tidy 文本的方法去了解哪些否定词在给定文本中比较重要；对此分析进行扩展的示例见章 \@ref(usenet)。
+词典并不包含全部英语词，因为很多英语词相当中性。要记住很重要的一点，这些方法没有考虑对词的修饰，如“不对”“不真实”等；基于词典的方法只基于一元组。对于很多种类的文本而言（如下面的叙事性文本示例），没有大段的讽刺或否定性描写，所以影响倒也不十分明显。而且，我们可以使用 tidy 文本的方法去了解哪些否定词在给定文本中比较重要；对此分析进行扩展的示例见章 @sec-usenet。
 
 最后的一点提醒是用来加和情感分数的文本大小会对分析结果造成影响。过多段落经常会由于正面和负面情感互相抵消导致平均值接近0，句子或者段落通常更合适。
 
@@ -60,7 +60,7 @@ Dictionary-based methods like the ones we are discussing find the total sentimen
 
 使用 tidy 格式的数据，可以用内部联接的方式完成情感分析。这是将文本挖掘视为 tidy 数据分析任务的又一伟大胜利；就和移除停止词是一个反向联接操作一样，执行情感分析是一个内部联接操作。
 
-我们看看来自NRC词典的含有开心成分的词。在《红楼梦》英译本中，最常见的表示开心的词有哪些？首先，我们从小说中得到文本，然后用 `unnest_tokens()` 把文本转换为 tidy 格式，如同像在节 \@ref(tidyworks) 中所做的。同时也建立一些其它的列来保存每个词来自哪个章回的哪行之类的信息；我们用 `group_by` 和 `mutate` 来创建这些列。
+我们看看来自NRC词典的含有开心成分的词。在《红楼梦》英译本中，最常见的表示开心的词有哪些？首先，我们从小说中得到文本，然后用 `unnest_tokens()` 把文本转换为 tidy 格式，如同像在节 @sec-tidyworks 中所做的。同时也建立一些其它的列来保存每个词来自哪个章回的哪行之类的信息；我们用 `group_by` 和 `mutate` 来创建这些列。
 
 ```{r eval = FALSE}
 library(gutenbergr)
@@ -109,7 +109,7 @@ tidy_books %>%
   count(word, sort = TRUE)
 ```
 
-可以看到多数正面的词如 young、good 和 smile 等。也可以看到一些可能不是用于开心含义的词如 found 和 present；我们将在节 \@ref(most-positive-negative) 中讨论更多细节。
+可以看到多数正面的词如 young、good 和 smile 等。也可以看到一些可能不是用于开心含义的词如 found 和 present；我们将在节 @sec-most-positive-negative 中讨论更多细节。
 
 我们也可以查看情感在整部小说中如何变化，只用主要来自 dplyr 的几行函数。首先，用 Bing 词典和 `inner_join()` 找到每个词的情感得分。然后，计算每个部分中正面和负面词的数量。我们定义一个 `index` 来记录叙事的进程；这个索引（使用整数除法）按每100行文本进行累加。
 
@@ -139,7 +139,7 @@ ggplot(net_sentiment, aes(index, sentiment, fill = book)) +
   facet_wrap(~book, ncol = 2, scales = "free_x")
 ```
 
-在图 \@ref(fig:sentimentplot) 中可以看到情感随着故事的进展是如何变化的。
+在图 @fig-sentimentplot 中可以看到情感随着故事的进展是如何变化的。
 
 ## 对三个情感字典进行比较
 
@@ -189,11 +189,9 @@ bing_and_nrc <- bind_rows(book_2 %>%
   mutate(sentiment = positive - negative)
 ```
 
-现在有了每个情感词典对小说文本中每段的情感净值的估值（正面计数 - 负面计数）。在图 \@ref(fig:compareplot) 中可以看到全部的结果。
+现在有了每个情感词典对小说文本中每段的情感净值的估值（正面计数 - 负面计数）。在图 @fig-compareplot 中可以看到全部的结果。
 
-(ref:comparecap) 用《红楼梦》英译本下半部比较三个情感词典
-
-```{r compareplot, dependson = "comparesentiment", fig.width=9, fig.height=7.5, fig.cap="(ref:comparecap)"}
+```{r compareplot, dependson = "comparesentiment", fig.width=9, fig.height=7.5, fig.cap="用《红楼梦》英译本下半部比较三个情感词典"}
 bind_rows(afinn, 
           bing_and_nrc) %>%
   ggplot(aes(index, sentiment, fill = method)) +
@@ -215,9 +213,9 @@ get_sentiments("bing") %>%
   count(sentiment)
 ```
 
-两个词典都是负面词更多，但负面与正面之比 Bing 词典要高于 NRC 词典。这对我们在图 \@ref(fig:compareplot) 中看到的现象有所贡献，也可能有词匹配的系统性的不同，如 NRC 词典中的负面词可能与小说中使用的不甚吻合。无论这些不同来自何处，我们都在整个叙事路径上看到了相似的进展，相似的坡度，但词典间会标记不同的绝对值。在为分析选择情感词典时需要考虑这些重要的区别。
+两个词典都是负面词更多，但负面与正面之比 Bing 词典要高于 NRC 词典。这对我们在图 @fig-compareplot 中看到的现象有所贡献，也可能有词匹配的系统性的不同，如 NRC 词典中的负面词可能与小说中使用的不甚吻合。无论这些不同来自何处，我们都在整个叙事路径上看到了相似的进展，相似的坡度，但词典间会标记不同的绝对值。在为分析选择情感词典时需要考虑这些重要的区别。
 
-## 最常见的正面词和负面词 {#most-positive-negative}
+## 最常见的正面词和负面词 {#sec-most-positive-negative}
 
 使用同时包含情感和词的数据框的优势在于我们可以分析对每种情感有贡献的词的计数。通过同时使用 `word` 和 `sentiment` 为参数实现 `count()`，我们可以发现每个词对每个情感贡献多大。
 
@@ -246,7 +244,7 @@ bing_word_counts %>%
   coord_flip()
 ```
 
-图 \@ref(fig:pipetoplot) 让我们发现情感分析中的一个异常；词 miss 被记成负面，但在作品中多数时候是指年轻未婚的女士。如果这不符合我们的目的，我们可以用 `bind_rows()` 把这样的词加进自定义停止词列表。我们可以很方便地像这样应用各种策略。
+图 @fig-pipetoplot 让我们发现情感分析中的一个异常；词 miss 被记成负面，但在作品中多数时候是指年轻未婚的女士。如果这不符合我们的目的，我们可以用 `bind_rows()` 把这样的词加进自定义停止词列表。我们可以很方便地像这样应用各种策略。
 
 ```{r custom_stop_words, dependson = "wordcounts"}
 custom_stop_words <- bind_rows(tibble(word = c("miss", "hung", "well", "master"),
@@ -259,7 +257,7 @@ custom_stop_words
 
 我们已经看到这个 tidy 文本挖掘方法用 ggplot2 绘图很简单，不仅如此，tidy 格式的数据用其它绘图方法也很方便。
 
-比如，考虑使用 wordcloud2 包 [@R-wordcloud2] 以便显示中文。我们再来看一下《红楼梦》中最常见的词，但这次是词云图 \@ref(fig:firstwordcloud)。
+比如，考虑使用 wordcloud2 包 [@R-wordcloud2] 以便显示中文。我们再来看一下《红楼梦》中最常见的词，但这次是词云图 @fig-firstwordcloud。
 
 ```{r firstwordcloud, fig.height=6, fig.width=6, fig.cap="《红楼梦》常见词云"}
 library(wordcloud2)
@@ -290,7 +288,7 @@ tidy_books %>%
                    max.words = 80)
 ```
 
-图 \@ref(fig:wordcloud) 中词的大小与其在其情感中的出现频次成正比。我们可以从这个可视化中看出最重要的正面与负面的词，但要注意不同情感间词的大小不能直接比较。
+图 @fig-wordcloud 中词的大小与其在其情感中的出现频次成正比。我们可以从这个可视化中看出最重要的正面与负面的词，但要注意不同情感间词的大小不能直接比较。
 
 ## 查看词以上的单元
 
