@@ -86,7 +86,7 @@ first(word_counts, 10)
 #| fig-cap: "四大名著中最常见的词（Julia）"
 using CairoMakie
 CairoMakie.activate!()
-set_theme!(fonts = (regular = "Microsoft YaHei",))
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
 
 top = filter(:n => >=(5000), word_counts)
 sort!(top, :n)

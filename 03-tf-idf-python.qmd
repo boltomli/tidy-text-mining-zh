@@ -1,0 +1,178 @@
+---
+engine: jupyter
+title: "Python 实现：tf-idf"
+---
+
+# Python 实现：tf-idf {#sec-tfidf-python}
+
+本章用 Python 重现第 \@ref(sec-tfidf) 章的内容：词频（tf）、齐夫定律、逆向文档频率（idf）与 tf-idf。Python 端用 **pandas** 做数据操作，**jieba** 分词，**matplotlib** 绘图。tf-idf 手动实现以对照 R `bind_tf_idf()` 的逐步过程。
+
+## 《红楼梦》中的词频（tf）
+
+从 parquet 读取《红楼梦》，分词，按每若干回分为六个部分，统计各部分各词的词频。
+
+```{python}
+import pandas as pd
+import jieba
+import re
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+hongloumeng = pd.read_parquet("data/common/hongloumeng.parquet")
+
+# 按章节正则分部分（等价于 R 的 cumsum(str_detect(...))）
+chapter_re = re.compile(r"^第[零一二三四五六七八九十百 ]*([二四六八 ]+十|零) ?一回")
+hongloumeng["chapter"] = (
+    1 + hongloumeng["text"].str.contains(chapter_re, na=False).cumsum()
+)
+hongloumeng["chapter"] = "第" + hongloumeng["chapter"].astype(str) + "部分"
+
+# 分词
+hongloumeng["words"] = hongloumeng["text"].apply(lambda t: jieba.lcut(t) if isinstance(t, str) else [])
+
+# 展开为每行一词，按部分和词计数
+tidy = hongloumeng[["chapter", "words"]].explode("words").rename(columns={"words": "word"})
+tidy = tidy[tidy["word"].str.len() > 0]
+chapter_words = tidy.groupby(["chapter", "word"]).size().reset_index(name="n")
+chapter_words = chapter_words.sort_values("n", ascending=False).reset_index(drop=True)
+
+# 各部分总词数
+total_words = chapter_words.groupby("chapter")["n"].sum().reset_index(name="total")
+chapter_words = chapter_words.merge(total_words, on="chapter")
+chapter_words.head(10)
+```
+
+各部分词频分布（等价于图 \@ref(fig-plottf)）：
+
+```{python}
+#| label: fig-plottf-py
+#| fig-cap: "《红楼梦》各部分的词频分布（Python）"
+fig, axes = plt.subplots(3, 2, figsize=(9, 9))
+chapters = sorted(chapter_words["chapter"].unique())
+for ax, ch in zip(axes.flat, chapters):
+    sub = chapter_words[chapter_words["chapter"] == ch]
+    tf = sub["n"] / sub["total"]
+    ax.hist(tf, bins=50, edgecolor="none")
+    ax.set_xlim(0, 0.0009)
+    ax.set_title(ch)
+plt.tight_layout()
+plt.show()
+```
+
+## 齐夫定律
+
+排名与词频的对数-对数关系（等价于图 \@ref(fig-zipf)）：
+
+```{python}
+#| label: fig-zipf-py
+#| fig-cap: "《红楼梦》中的齐夫定律（Python）"
+freq_by_rank = chapter_words.sort_values(["chapter", "n"], ascending=[True, False]).copy()
+freq_by_rank["rank"] = freq_by_rank.groupby("chapter").cumcount() + 1
+freq_by_rank["term frequency"] = freq_by_rank["n"] / freq_by_rank["total"]
+
+fig, ax = plt.subplots(figsize=(6, 5))
+for ch in sorted(freq_by_rank["chapter"].unique()):
+    sub = freq_by_rank[freq_by_rank["chapter"] == ch]
+    ax.plot(sub["rank"], sub["term frequency"], alpha=0.8, label=ch)
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel("rank")
+ax.set_ylabel("term frequency")
+plt.tight_layout()
+plt.show()
+```
+
+拟合中段幂律（等价于 R 的 `lm(log10(...) ~ log10(rank))`）：
+
+```{python}
+subset = freq_by_rank[(freq_by_rank["rank"] > 10) & (freq_by_rank["rank"] < 500)].copy()
+subset["log10_rank"] = np.log10(subset["rank"])
+subset["log10_tf"] = np.log10(subset["term frequency"])
+slope, intercept = np.polyfit(subset["log10_rank"], subset["log10_tf"], 1)
+print(f"斜率: {slope:.4f}, 截距: {intercept:.4f}")
+```
+
+## tf-idf
+
+手动计算 tf-idf（等价于 `bind_tf_idf(word, chapter, n)`）：
+
+```{python}
+n_docs = chapter_words["chapter"].nunique()
+# idf = ln(n_documents / n_documents_containing_word)
+docs_per_word = chapter_words.groupby("word")["chapter"].nunique()
+chapter_words["tf"] = chapter_words["n"] / chapter_words["total"]
+chapter_words["idf"] = np.log(n_docs / docs_per_word.reindex(chapter_words["word"]).values)
+chapter_words["tf_idf"] = chapter_words["tf"] * chapter_words["idf"]
+chapter_words = chapter_words.sort_values("tf_idf", ascending=False)
+chapter_words.head(10)
+```
+
+各部分 tf-idf 最高的词（等价于图 \@ref(fig-plotseparate)）：
+
+```{python}
+#| label: fig-plotseparate-py
+#| fig-cap: "《红楼梦》每个部分中 tf-idf 最高的词（Python）"
+top10 = chapter_words.groupby("chapter").head(10)
+
+fig, axes = plt.subplots(3, 2, figsize=(9, 10))
+for ax, ch in zip(axes.flat, sorted(top10["chapter"].unique())):
+    sub = top10[top10["chapter"] == ch].sort_values("tf_idf")
+    ax.barh(sub["word"], sub["tf_idf"])
+    ax.set_title(ch)
+    ax.set_xlabel("tf-idf")
+plt.tight_layout()
+plt.show()
+```
+
+## 科技文本语料
+
+对四种古代科技文本做同样的 tf-idf 分析。
+
+```{python}
+stem = pd.read_parquet("data/common/stem.parquet")
+stem["words"] = stem["text"].apply(lambda t: jieba.lcut(t) if isinstance(t, str) else [])
+tidy_stem = stem[["author", "words"]].explode("words").rename(columns={"words": "word"})
+tidy_stem = tidy_stem[tidy_stem["word"].str.len() > 0]
+stem_words = tidy_stem.groupby(["author", "word"]).size().reset_index(name="n")
+
+# 移除纯数字/英文词
+num_re = re.compile(r"^[A-Za-z0-9零一二三四五六七八九十百千萬]+$")
+stem_words = stem_words[~stem_words["word"].str.match(num_re)]
+
+# tf-idf
+n_docs_s = stem_words["author"].nunique()
+docs_per_word_s = stem_words.groupby("word")["author"].nunique()
+stem_words["tf_idf"] = (stem_words["n"] / stem_words.groupby("author")["n"].transform("sum")) * \
+    np.log(n_docs_s / docs_per_word_s.reindex(stem_words["word"]).values)
+stem_words = stem_words.sort_values("tf_idf", ascending=False)
+```
+
+```{python}
+#| label: fig-stemclean-py
+#| fig-cap: "每个科技文本中 tf-idf 最高的词（Python）"
+top15 = stem_words.groupby("author").head(15)
+
+fig, axes = plt.subplots(2, 2, figsize=(8, 7))
+for ax, auth in zip(axes.flat, sorted(top15["author"].unique())):
+    sub = top15[top15["author"] == auth].sort_values("tf_idf")
+    ax.barh(sub["word"], sub["tf_idf"])
+    ax.set_title(auth, fontsize=9)
+    ax.set_xlabel("tf-idf")
+plt.tight_layout()
+plt.show()
+```
+
+## R vs Python 对比
+
+| 任务 | R | Python |
+|---|---|---|
+| 分部分 | `cumsum(str_detect(...))` | `str.contains(...).cumsum()` |
+| 词频计数 | `count(chapter, word, sort=TRUE)` | `groupby().size()` |
+| tf 计算 | `bind_tf_idf()` | 手动 `n/total` |
+| idf 计算 | `bind_tf_idf()` | 手动 `ln(n_docs/n_docs_per_word)` |
+| 幂律拟合 | `lm(log10() ~ log10())` | `np.polyfit()` |
+| 绘图 | ggplot2 `facet_wrap()` | matplotlib subplots |

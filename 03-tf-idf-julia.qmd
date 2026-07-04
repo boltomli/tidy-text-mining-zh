@@ -1,0 +1,209 @@
+---
+engine: jupyter
+title: "Julia 实现：tf-idf"
+---
+
+# Julia 实现：tf-idf {#sec-tfidf-julia}
+
+本章用 Julia 重现第 \@ref(sec-tfidf) 章的内容：词频（tf）、齐夫定律、逆向文档频率（idf）与 tf-idf。Julia 端用 **DataFrames.jl** 做数据操作，纯 Julia FMM 分词，**CairoMakie.jl** 绘图。tf-idf 手动实现以对照 R `bind_tf_idf()`。
+
+## 《红楼梦》中的词频（tf）
+
+从 parquet 读取《红楼梦》，分词，按章节正则分为六个部分，统计各部分各词的词频。
+
+```{julia}
+include("data/jieba_fmm.jl")
+using DataFrames, Parquet2, StatsBase, Statistics
+using CairoMakie
+CairoMakie.activate!()
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+
+dict = load_dict("data/jieba_dict.txt")
+hongloumeng = DataFrame(Parquet2.Dataset("data/common/hongloumeng.parquet"))
+
+# 按章节正则分部分（等价于 R 的 cumsum(str_detect(...))）
+chapter_re = r"^第[零一二三四五六七八九十百 ]*([二四六八 ]+十|零) ?一回"
+hongloumeng.chapter = "第" .* string.(1 .+ cumsum(occursin.(Ref(chapter_re), coalesce.(hongloumeng.text, "")))) .* "部分"
+
+# 分词
+function segment_text_safe(text, dict)
+    ismissing(text) && return String[]
+    return fmm_segment(text, dict)
+end
+hongloumeng.words = segment_text_safe.(hongloumeng.text, Ref(dict))
+
+# 展开为每行一词
+rows = []
+for row in eachrow(hongloumeng)
+    for w in row.words
+        isempty(strip(w)) && continue
+        push!(rows, (chapter = row.chapter, word = w))
+    end
+end
+tidy = DataFrame(rows)
+chapter_words = combine(groupby(tidy, [:chapter, :word]), nrow => :n)
+sort!(chapter_words, :n, rev = true)
+
+# 各部分总词数
+total_words = combine(groupby(chapter_words, :chapter), :n => sum => :total)
+chapter_words = leftjoin(chapter_words, total_words, on = :chapter)
+first(chapter_words, 10)
+```
+
+各部分词频分布（等价于图 \@ref(fig-plottf)）：
+
+```{julia}
+#| label: fig-plottf-jl
+#| fig-cap: "《红楼梦》各部分的词频分布（Julia）"
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+chapters = sort(unique(chapter_words.chapter))
+fig = Figure(size = (900, 900))
+for (i, ch) in enumerate(chapters)
+    sub = filter(:chapter => ==(ch), chapter_words)
+    tf = sub.n ./ sub.total
+    ax = Axis(fig[((i-1)÷2)+1, ((i-1)%2)+1]; title = ch)
+    xlims!(ax, 0.0, 0.0009)
+    hist!(ax, tf; bins = 50)
+end
+fig
+```
+
+## 齐夫定律
+
+排名与词频的对数-对数关系（等价于图 \@ref(fig-zipf)）：
+
+```{julia}
+#| label: fig-zipf-jl
+#| fig-cap: "《红楼梦》中的齐夫定律（Julia）"
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+sort!(chapter_words, [:chapter, :n], rev = [false, true])
+freq_by_rank = chapter_words[:, :]
+transform!(freq_by_rank, :n => :rank)
+
+# 按章节计算排名
+for sub in groupby(freq_by_rank, :chapter)
+    sub.rank = 1:nrow(sub)
+end
+freq_by_rank[!, :tf] = freq_by_rank.n ./ freq_by_rank.total
+
+fig = Figure(size = (600, 500))
+ax = Axis(fig[1, 1]; xscale = log10, yscale = log10, xlabel = "rank", ylabel = "term frequency")
+for ch in sort(unique(freq_by_rank.chapter))
+    sub = filter(:chapter => ==(ch), freq_by_rank)
+    lines!(ax, sub.rank, sub.tf; alpha = 0.8)
+end
+fig
+```
+
+拟合中段幂律：
+
+```{julia}
+subset = filter(:rank => r -> r > 10 && r < 500, freq_by_rank)
+x = log10.(subset.rank)
+y = log10.(subset.tf)
+A = hcat(x, ones(length(x)))
+coef = A \ y
+println("斜率: $(round(coef[1], digits=4)), 截距: $(round(coef[2], digits=4))")
+```
+
+## tf-idf
+
+手动计算 tf-idf（等价于 `bind_tf_idf(word, chapter, n)`）：
+
+```{julia}
+n_docs = length(unique(chapter_words.chapter))
+# 每个词出现在多少个部分中
+docs_per_word = combine(groupby(chapter_words, :word), :chapter => length => :n_docs)
+chapter_words = leftjoin(chapter_words, docs_per_word, on = :word)
+chapter_words[!, :tf] = chapter_words.n ./ chapter_words.total
+chapter_words[!, :idf] = log.(n_docs ./ chapter_words.n_docs)
+chapter_words[!, :tf_idf] = chapter_words.tf .* chapter_words.idf
+sort!(chapter_words, :tf_idf, rev = true)
+first(chapter_words, 10)
+```
+
+各部分 tf-idf 最高的词（等价于图 \@ref(fig-plotseparate)）：
+
+```{julia}
+#| label: fig-plotseparate-jl
+#| fig-cap: "《红楼梦》每个部分中 tf-idf 最高的词（Julia）"
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+top10 = combine(groupby(chapter_words, :chapter)) do sub
+    first(sub, 10)
+end
+
+fig = Figure(size = (900, 1000))
+for (i, ch) in enumerate(sort(unique(top10.chapter)))
+    sub = filter(:chapter => ==(ch), top10)
+    sort!(sub, :tf_idf)
+    ax = Axis(fig[((i-1)÷2)+1, ((i-1)%2)+1]; title = ch, xlabel = "tf-idf",
+              yticks = (collect(1:nrow(sub)), collect(sub.word)))
+    barplot!(ax, collect(1:nrow(sub)), sub.tf_idf; direction = :x)
+end
+fig
+```
+
+## 科技文本语料
+
+对四种古代科技文本做同样的 tf-idf 分析。
+
+```{julia}
+stem = DataFrame(Parquet2.Dataset("data/common/stem.parquet"))
+stem.words = segment_text_safe.(stem.text, Ref(dict))
+
+rows_stem = []
+for row in eachrow(stem)
+    for w in row.words
+        isempty(strip(w)) && continue
+        push!(rows_stem, (author = row.author, word = w))
+    end
+end
+tidy_stem = DataFrame(rows_stem)
+stem_words = combine(groupby(tidy_stem, [:author, :word]), nrow => :n)
+
+# 移除纯数字/英文词
+num_re = r"^[A-Za-z0-9零一二三四五六七八九十百千萬]+$"
+stem_words = filter(:word => w -> !occursin(num_re, w), stem_words)
+
+# tf-idf
+n_docs_s = length(unique(stem_words.author))
+docs_per_word_s = combine(groupby(stem_words, :word), :author => length => :n_docs)
+stem_words = leftjoin(stem_words, docs_per_word_s, on = :word)
+author_total = combine(groupby(stem_words, :author), :n => sum => :total)
+stem_words = leftjoin(stem_words, author_total, on = :author)
+stem_words[!, :tf_idf] = (stem_words.n ./ stem_words.total) .* log.(n_docs_s ./ stem_words.n_docs)
+sort!(stem_words, :tf_idf, rev = true)
+```
+
+```{julia}
+#| label: fig-stemclean-jl
+#| fig-cap: "每个科技文本中 tf-idf 最高的词（Julia）"
+set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+top15 = combine(groupby(stem_words, :author)) do sub
+    first(sub, 15)
+end
+
+fig = Figure(size = (800, 700))
+authors = sort(unique(top15.author))
+for (i, auth) in enumerate(authors)
+    sub = filter(:author => ==(auth), top15)
+    sort!(sub, :tf_idf)
+    ax = Axis(fig[((i-1)÷2)+1, ((i-1)%2)+1]; title = auth, xlabel = "tf-idf",
+              yticks = (collect(1:nrow(sub)), collect(sub.word)))
+    barplot!(ax, collect(1:nrow(sub)), sub.tf_idf; direction = :x)
+end
+fig
+```
+
+## R vs Julia 对比
+
+| 任务 | R | Julia |
+|---|---|---|
+| 分部分 | `cumsum(str_detect(...))` | `cumsum(occursin.(Ref(re), ...))` |
+| 词频计数 | `count(chapter, word, sort=TRUE)` | `combine(groupby, nrow)` + `sort!` |
+| tf 计算 | `bind_tf_idf()` | 手动 `n ./ total` |
+| idf 计算 | `bind_tf_idf()` | 手动 `log.(n_docs ./ n_docs_per_word)` |
+| 幂律拟合 | `lm(log10() ~ log10())` | `A \ y`（最小二乘） |
+| 绘图 | ggplot2 `facet_wrap()` | CairoMakie subplots |
+
+Julia FMM 分词会将部分未登录词切成单字，导致词频分布与 R jiebaR 有差异，尤其影响低频词和专有名词的切分。tf-idf 高值的词以专有名词为主，趋势应与 R 一致。
