@@ -2,6 +2,7 @@
 
 ```{r echo = FALSE}
 library(knitr)
+opts_knit$set(rmarkdown.latex.has_HTML_output = TRUE)
 opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
 options(width = 100, dplyr.width = 100)
 library(jiebaR)
@@ -263,7 +264,7 @@ custom_stop_words
 
 比如，考虑使用 wordcloud2 包 [@R-wordcloud2] 以便显示中文。我们再来看一下《红楼梦》中最常见的词，但这次是词云图 @fig-firstwordcloud。
 
-```{r firstwordcloud, fig.height=6, fig.width=6, fig.cap="《红楼梦》常见词云"}
+```{r firstwordcloud, fig.height=6, fig.width=6, fig.cap="《红楼梦》常见词云", eval = !knitr::is_latex_output()}
 #| label: fig-firstwordcloud
 library(wordcloud2)
 load("data/hongloumeng.rda")

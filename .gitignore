@@ -14,6 +14,7 @@ reanalysis-hongloumeng.R
 
 /.quarto/
 **/*.quarto_ipynb
+**/*.quarto_ipynb_*
 # knitr 缓存目录
 *_cache/
 # knitr 单文件渲染的图输出目录与 pdf() 残留
