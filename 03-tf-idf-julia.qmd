@@ -16,7 +16,7 @@ include("data/jieba_fmm.jl")
 using DataFrames, Parquet2, StatsBase, Statistics
 using CairoMakie
 CairoMakie.activate!()
-set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
 
 dict = load_dict("data/jieba_dict.txt")
 hongloumeng = DataFrame(Parquet2.Dataset("data/common/hongloumeng.parquet"))
@@ -55,7 +55,7 @@ first(chapter_words, 10)
 ```{julia}
 #| label: fig-plottf-jl
 #| fig-cap: "《红楼梦》各部分的词频分布（Julia）"
-set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
 chapters = sort(unique(chapter_words.chapter))
 fig = Figure(size = (900, 900))
 for (i, ch) in enumerate(chapters)
@@ -75,7 +75,7 @@ fig
 ```{julia}
 #| label: fig-zipf-jl
 #| fig-cap: "《红楼梦》中的齐夫定律（Julia）"
-set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
 sort!(chapter_words, [:chapter, :n], rev = [false, true])
 freq_by_rank = chapter_words[:, :]
 transform!(freq_by_rank, :n => :rank)
@@ -127,7 +127,7 @@ first(chapter_words, 10)
 ```{julia}
 #| label: fig-plotseparate-jl
 #| fig-cap: "《红楼梦》每个部分中 tf-idf 最高的词（Julia）"
-set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
 top10 = combine(groupby(chapter_words, :chapter)) do sub
     first(sub, 10)
 end
@@ -178,7 +178,7 @@ sort!(stem_words, :tf_idf, rev = true)
 ```{julia}
 #| label: fig-stemclean-jl
 #| fig-cap: "每个科技文本中 tf-idf 最高的词（Julia）"
-set_theme!(fonts = (regular = "Microsoft YaHei", bold = "Microsoft YaHei"))
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
 top15 = combine(groupby(stem_words, :author)) do sub
     first(sub, 15)
 end

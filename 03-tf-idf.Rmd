@@ -2,16 +2,12 @@
 
 ```{r echo = FALSE}
 library(knitr)
-opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE,
+               dev = if (knitr::is_latex_output()) "cairo_pdf" else "png")
 options(width = 100, dplyr.width = 100)
 library(jiebaR)
 library(ggplot2)
-library(showtext)
-showtext_auto(enable = TRUE)
-pdf()
-theme_zh <- theme_light() +
-  theme(text = element_text(family = "wqy-microhei"))
-theme_set(theme_zh)
+theme_set(theme_light() + theme(text = element_text(family = "Noto Sans CJK SC")))
 ```
 
 文本挖掘与自然语言处理的一个中心问题是如何量化一个文档的内容。我们可以通过观察组成文档的词做到这一点吗？一个词的重要性的测度可以是其 *词频*（term frequency，tf），一个词在一个文档中出现的频率，我们在章 @sec-tidytext 中已经检查过了。然而，一个文档中有些词出现了很多次但可能并不重要；在英语中，这些词很可能是诸如“the”“is”“of”之类。我们可以通过加入停止词列表的方法在分析前就把这些词去掉，但是这些词中的某些词可能在有的文档中比另一些更重要。用停止词列表调整常用词词频的方法还不够精巧。

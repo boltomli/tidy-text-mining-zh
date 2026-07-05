@@ -1,5 +1,6 @@
 \usepackage{booktabs}
 \usepackage{longtable}
+\usepackage{url}
 
 \usepackage{framed,color}
 \definecolor{shadecolor}{RGB}{248,248,248}
@@ -9,8 +10,12 @@
 \renewcommand{\bottomfraction}{0.8}
 \renewcommand{\floatpagefraction}{0.75}
 
+\makeatletter
+\@ifundefined{href}{}{%
 \let\oldhref\href
-\renewcommand{\href}[2]{#2\footnote{\url{#1}}}
+\renewcommand{\href}[2]{#2\footnote{\url{#1}}}%
+}
+\makeatother
 
 \makeatletter
 \newenvironment{kframe}{%
@@ -36,8 +41,11 @@
 \@ifundefined{Shaded}{
 }{\renewenvironment{Shaded}{\begin{kframe}}{\end{kframe}}}
 \@ifpackageloaded{fancyvrb}{%
-  % https://github.com/CTeX-org/ctex-kit/issues/331
-  \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},formatcom=\xeCJKVerbAddon}%
+  \@ifundefined{xeCJKVerbAddon}{%
+    \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}%
+  }{%
+    \RecustomVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},formatcom=\xeCJKVerbAddon}%
+  }%
 }{}
 \makeatother
 
@@ -80,15 +88,15 @@
   {\begin{rmdblock}{warning}}
   {\end{rmdblock}}
 
-\setCJKmainfont[BoldFont={Noto Serif CJK SC Bold}, ItalicFont={Noto Serif CJK SC Light}]{Noto Serif CJK SC}
+\setCJKmainfont{Noto Sans CJK SC}
 \setCJKsansfont{Noto Sans CJK SC}
 \setCJKmonofont{Noto Sans CJK SC}
-\setCJKfamilyfont{zhsong}{Noto Serif CJK SC}
+\setCJKfamilyfont{zhsong}{Noto Sans CJK SC}
 \setCJKfamilyfont{zhhei}{Noto Sans CJK SC}
-\setCJKfamilyfont{zhkai}{Noto Serif CJK SC Medium}
-\setCJKfamilyfont{zhfs}{Noto Serif CJK SC Light}
-\setCJKfamilyfont{zhli}{Noto Sans CJK SC Medium}
-\setCJKfamilyfont{zhyou}{Noto Sans CJK SC Medium}
+\setCJKfamilyfont{zhkai}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhfs}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhli}{Noto Sans CJK SC}
+\setCJKfamilyfont{zhyou}{Noto Sans CJK SC}
 \usepackage{savesym}
 \savesymbol{songti}
 \newcommand*{\songti}{\CJKfamily{zhsong}} % 宋体

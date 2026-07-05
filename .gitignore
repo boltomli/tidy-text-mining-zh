@@ -27,3 +27,10 @@ Rplots.pdf
 /data/common/
 # Julia jupyter-cache
 /.jupyter_cache/
+# keep-tex 生成的 .tex（PDF 编译中间产物）
+/*.tex
+/*.log
+/*.idx
+/*.ilg
+/*.ind
+/*.pdf

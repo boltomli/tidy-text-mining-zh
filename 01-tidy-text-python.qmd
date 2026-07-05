@@ -75,7 +75,7 @@ word_counts.head(10)
 import matplotlib.pyplot as plt
 import matplotlib
 
-matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["font.sans-serif"] = ["Noto Sans CJK SC", "Microsoft YaHei", "SimHei"]
 matplotlib.rcParams["axes.unicode_minus"] = False
 
 top = word_counts[word_counts["n"] >= 5000].sort_values("n")

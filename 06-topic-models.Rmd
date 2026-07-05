@@ -2,7 +2,8 @@
 
 ```{r echo = FALSE}
 library(knitr)
-opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE,
+               dev = if (knitr::is_latex_output()) "cairo_pdf" else "png")
 options(width = 100, dplyr.width = 150)
 library(tidytext)
 library(tidyr)
@@ -11,12 +12,7 @@ library(jiebaR)
 library(ggplot2)
 library(methods)
 library(scales)
-library(showtext)
-showtext_auto(enable = TRUE)
-pdf()
-theme_zh <- theme_light() +
-  theme(text = element_text(family = "wqy-microhei"))
-theme_set(theme_zh)
+theme_set(theme_light() + theme(text = element_text(family = "Noto Sans CJK SC")))
 ``` 
 
 在文本挖掘中，我们经常有多个包含多个文档的集合，如博客或新闻文章，我们想将其自然分组，以便分开阅读。主题模型是对这样的文档进行无监督分类的一种方法，类似于数字型数据的聚类，即使不知道需要寻找什么也可以找到自然的组别。
@@ -355,7 +351,7 @@ assignments %>%
        fill = "正确分配的百分比") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         panel.grid = element_blank(),
-        text = element_text(family = "wqy-microhei"))
+        text = element_text(family = "Noto Sans CJK SC"))
 ```
 
 注意到几乎所有词都正确分配了，但不少书里的词都倾向于了《水滸後傳》。最常出错的词有哪些？

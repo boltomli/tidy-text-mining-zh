@@ -4,7 +4,8 @@
 
 ```{r echo = FALSE}
 library(knitr)
-opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE,
+               dev = "cairo_pdf")
 options(width = 100, dplyr.width = 100)
 library(ggplot2)
 theme_set(theme_light())
@@ -199,13 +200,10 @@ tidy_mingqingxiaoshuo %>%
   count(word, sort = TRUE)
 ```
 
-图 @fig-plotcount-zh 展示了常见词词频。这里尝试使用 [showtext](https://github.com/yixuan/showtext) [@R-showtext] 方便图片里的中文字符正确渲染而无需依赖系统字体。`showtext`内嵌的[文泉驿微米黑](https://wenq.org/wqy2/index.cgi?MicroHei)是自由字体，遵循[GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)，允许所有人复制和发布。
+图 @fig-plotcount-zh 展示了常见词词频。R 图形里中文字符的正确渲染依赖系统安装的 CJK 字体，这里使用 [Noto Sans CJK SC](https://github.com/notofonts/noto-cjk)（SIL Open Font License 1.1，自由使用、再分发与修改）。
 
 ```{r plotcount-zh, dependson = "tidy_mingqingxiaoshuo", fig.width=6, fig.height=5, fig.cap="四大名著中最常见的词"}
 #| label: fig-plotcount-zh
-library(showtext)
-showtext_auto(enable = TRUE)
-pdf()
 tidy_mingqingxiaoshuo %>%
   count(word, sort = TRUE) %>%
   filter(n >= 5000) %>%
@@ -214,7 +212,7 @@ tidy_mingqingxiaoshuo %>%
   geom_col() +
   xlab(NULL) +
   coord_flip() +
-  theme(text = element_text(family = "wqy-microhei"))
+  theme(text = element_text(family = "Noto Sans CJK SC"))
 ```
 
 ## 词频
@@ -294,14 +292,14 @@ library(scales)
 ggplot(frequency, aes(x = proportion, y = `Various`, color = abs(`Various` - proportion))) +
   geom_abline(color = "gray40", lty = 2) +
   geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5, family = "wqy-microhei") +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5, family = "Noto Sans CJK SC") +
   scale_x_log10(labels = percent_format()) +
   scale_y_log10(labels = percent_format()) +
   scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
   facet_wrap(~author, ncol = 2) +
   theme(legend.position="none") +
   labs(y = "Various", x = NULL) +
-  theme(text = element_text(family = "wqy-microhei"))
+  theme(text = element_text(family = "Noto Sans CJK SC"))
 ```
 
 靠近斜线的点代表的词在相应的两组文本中有着相似的出现频率，比如“道”“是”“不”同时高频出现在四大名著和冯梦龙的文本中，而“不”“見”“上”同时高频出现在四大名著和袁枚的文本中。远离斜线的词在一个文本中比另一个要常见得多。比如，在四大名著-冯梦龙一侧的图中，诸如“寳玉”“大聖”这些词（全是人名和称谓）在四大名著文本中多见，而在冯梦龙文本中就不多，同时“東坡”在冯梦龙文本中更多见而非四大名著文本。

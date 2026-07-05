@@ -63,7 +63,7 @@ format:
     toc-depth: 3
     lof: true
     lot: true
-    fig-format: pdf
+    fig-format: retina
   epub:
     stylesheet: css/style.css
     cover-image: images/cover.png

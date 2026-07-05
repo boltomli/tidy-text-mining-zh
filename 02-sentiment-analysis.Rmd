@@ -2,15 +2,12 @@
 
 ```{r echo = FALSE}
 library(knitr)
-opts_knit$set(rmarkdown.latex.has_HTML_output = TRUE)
-opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE)
+opts_chunk$set(message = FALSE, warning = FALSE, cache = TRUE,
+               dev = if (knitr::is_latex_output()) "cairo_pdf" else "png")
 options(width = 100, dplyr.width = 100)
 library(jiebaR)
-library(showtext)
-showtext_auto(enable = TRUE)
-pdf()
 library(ggplot2)
-theme_set(theme_light())
+theme_set(theme_light() + theme(text = element_text(family = "Noto Sans CJK SC")))
 ```
 
 前一章中，我们深入探索了何为 tidy 文本格式，并展示了如何在关于词频的问题中应用这一格式。我们可以分析文档中哪些词使用频率最高。现在我们来调查一个不同的主题，对倾向进行挖掘，即情感分析。当人类读者接触到一个文本，会对情感意图词汇进行推断，理解一段文本是正面还是负面的，或者归类于其它更细微的情感，如惊讶或恶心。我们可以用文本挖掘工具程序化地获得文本的情感内容，如图 @fig-tidyflow-ch2 所示。
@@ -276,7 +273,7 @@ hongloumeng %>%
   unnest_tokens(word, text) %>%
   count(word) %>%
   top_n(80) %>%
-  wordcloud2(fontFamily = "wqy-microhei")
+  wordcloud2(fontFamily = "Noto Sans CJK SC")
 ```
 
 使用 R base 的 wordcloud 包 [@R-wordcloud] 包含了 `comparison.cloud()`，可以用 reshape2 的 `acast()` 把数据框转变为矩阵。用内部联接标记情感分析正面和负面的词，然后找到最常见的正面和负面词。在把数据发给 `comparison.cloud()` 之前，都可以用联接、管道和 dplyr，因为数据为 tidy 格式。
