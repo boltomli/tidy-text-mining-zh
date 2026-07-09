@@ -1,0 +1,120 @@
+name: Build & Deploy Quarto Book to GitHub Pages
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      QUARTO_PYTHON: python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Quarto ──
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      # ── System dependencies ──
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libfontconfig1-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libfreetype6-dev \
+            libpng-dev \
+            libtiff5-dev \
+            libjpeg-dev \
+            libglpk-dev
+
+      # ── R ──
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4"
+          packages: |
+            any::dplyr
+            any::tidytext
+            any::stringr
+            any::tidyr
+            any::ggplot2
+            any::gutenbergr
+            any::janeaustenr
+            any::showtext
+            any::scales
+            any::ggraph
+            any::igraph
+            any::widyr
+            any::topicmodels
+            any::broom
+            any::quanteda
+            any::wordcloud
+            any::wordcloud2
+            any::codetools
+            any::purrr
+            any::devtools
+            any::remotes
+            any::Rcpp
+            any::arrow
+
+      - name: Install jiebaR & mqxsr from GitHub
+        run: |
+          Rscript -e 'remotes::install_github("qinwf/jiebaRD", upgrade = "never")'
+          Rscript -e 'remotes::install_github("qinwf/jiebaR", upgrade = "never", dependencies = TRUE)'
+          Rscript -e 'remotes::install_github("boltomli/mingqingxiaoshuor", upgrade = "never")'
+        shell: bash
+
+      # ── Python ──
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: pip install -r pyproject.toml
+
+      - name: Download NLTK data
+        run: python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('punkt_tab', quiet=True)"
+
+      # ── Data export (parquet files are gitignored) ──
+      - name: Export common data
+        run: Rscript data/export-common.R
+
+      # ── Build HTML book ──
+      - name: Render Quarto book
+        run: quarto render --to html
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _book
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

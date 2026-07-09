@@ -1,0 +1,312 @@
+---
+engine: jupyter
+title: "Julia 实现：词间关系与 n 元组"
+---
+
+# Julia 实现：词间关系与 n 元组 {#sec-ngrams-julia}
+
+本章用 Julia 重现第 \@ref(sec-ngrams) 章的内容：二元组分析、否定词上下文、词对共现与相关度、网络可视化。Julia 端用 **DataFrames.jl** 做数据操作，**CairoMakie.jl** 绘图，**LightGraphs.jl** + **GraphMakie.jl** 绘制网络图。
+
+## 按二元组分词
+
+从 parquet 读取《红楼梦》英译本，生成二元组。
+
+```{julia}
+using DataFrames, Parquet2
+
+hongloumeng_en = DataFrame(Parquet2.Dataset("data/common/hongloumeng_en.parquet"))
+
+# 标记 book
+hongloumeng_en.book = cumsum(occursin.(Ref(r"HUNG LOU MENG, BOOK [I]+"), coalesce.(hongloumeng_en.text, "")))
+```
+
+```{julia}
+# 英文停止词
+en_stopwords = Set(split("i me my myself we our ours ourselves you your yours yourself yourselves
+him himselves his himself she her hers herself it its itself they them their theirs
+themselves what which who whom this that these those am is are was were be been being
+have has had having do does did doing a an the and but if or because as until while of at
+by for with about against between through during before after above below to from up down
+in out on off over under again further then once here there when where why how all both each
+few more most other some such no nor not only own same so than too very s t can will just don
+should now d ll m o re ve y ainaren couldn didn doesn hadn hasn haven isn ma mightn
+mustn needn shan shouldn wasn weren won wasn won"))
+```
+
+```{julia}
+# 简单英文分词
+function tokenize_en(text)
+    ismissing(text) && return String[]
+    cleaned = replace(text, r"[^a-zA-Z\s]" => "")
+    words = split(cleaned)
+    return [lowercase(w) for w in words if length(w) > 0]
+end
+
+# 生成二元组
+function make_bigrams(tokens)
+    return [tokens[i] * " " * tokens[i+1] for i in 1:length(tokens)-1]
+end
+
+# 展开为每行一个二元组
+rows_bg = []
+for row in eachrow(hongloumeng_en)
+    tokens = tokenize_en(row.text)
+    for bg in make_bigrams(tokens)
+        push!(rows_bg, (book = row.book, bigram = bg))
+    end
+end
+bigrams = DataFrame(rows_bg)
+println("二元组总数: ", nrow(bigrams))
+first(bigrams, 5)
+```
+
+### 计算和过滤二元组
+
+```{julia}
+# 拆分为 word1, word2
+split_words = split.(bigrams.bigram, ' ')
+bigrams.word1 = [w[1] for w in split_words]
+bigrams.word2 = [w[2] for w in split_words]
+
+# 移除停止词
+bigrams_filtered = filter(row -> !(row.word1 in en_stopwords) && !(row.word2 in en_stopwords), bigrams)
+
+# 计数
+bigram_counts = combine(groupby(bigrams_filtered, [:word1, :word2]), nrow => :n)
+sort!(bigram_counts, :n, rev = true)
+first(bigram_counts, 10)
+```
+
+### 三元组
+
+```{julia}
+function make_trigrams(tokens)
+    return [tokens[i] * " " * tokens[i+1] * " " * tokens[i+2] for i in 1:length(tokens)-2]
+end
+
+rows_tri = []
+for row in eachrow(hongloumeng_en)
+    tokens = tokenize_en(row.text)
+    for tg in make_trigrams(tokens)
+        push!(rows_tri, (book = row.book, trigram = tg))
+    end
+end
+trigrams = DataFrame(rows_tri)
+
+# 过滤停止词
+tri_words = split.(trigrams.trigram, ' ')
+trigrams.word1 = [w[1] for w in tri_words]
+trigrams.word2 = [w[2] for w in tri_words]
+trigrams.word3 = [w[3] for w in tri_words]
+tri_filtered = filter(row -> !(row.word1 in en_stopwords) && !(row.word2 in en_stopwords) && !(row.word3 in en_stopwords), trigrams)
+tri_counts = combine(groupby(tri_filtered, [:word1, :word2, :word3]), nrow => :n)
+sort!(tri_counts, :n, rev = true)
+first(tri_counts, 10)
+```
+
+### 分析二元组
+
+```{julia}
+# 提及 "mansion" 最多的词
+mansion = filter(:word2 => ==("mansion"), bigrams_filtered)
+mansion_counts = combine(groupby(mansion, [:book, :word1]), nrow => :n)
+sort!(mansion_counts, :n, rev = true)
+first(mansion_counts, 10)
+```
+
+### 二元组的 tf-idf
+
+```{julia}
+bigrams_united = bigrams_filtered[:, :]
+bigrams_united.bigram = bigrams_united.word1 .* " " .* bigrams_united.word2
+
+bg_counts = combine(groupby(bigrams_united, [:book, :bigram]), nrow => :n)
+n_docs = length(unique(bg_counts.book))
+docs_per_bg = combine(groupby(bg_counts, :bigram), :book => length => :n_docs)
+bg_counts = leftjoin(bg_counts, docs_per_bg, on = :bigram)
+bg_total = combine(groupby(bg_counts, :book), :n => sum => :total)
+bg_counts = leftjoin(bg_counts, bg_total, on = :book)
+bg_counts.tf = bg_counts.n ./ bg_counts.total
+bg_counts.idf = log.(n_docs ./ bg_counts.n_docs)
+bg_counts.tf_idf = bg_counts.tf .* bg_counts.idf
+sort!(bg_counts, :tf_idf, rev = true)
+first(bg_counts, 10)
+```
+
+```{julia}
+#| label: fig-bigramtfidf-jl
+#| fig-cap: "《红楼梦》上下半部中 tf-idf 最高的二元组（Julia）"
+using CairoMakie
+CairoMakie.activate!()
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+fig = Figure(size = (1200, 700))
+for (i, book) in enumerate(sort(unique(bg_counts.book)))
+    top12 = first(filter(:book => ==(book), bg_counts), 12)
+    sort!(top12, :tf_idf)
+    ax = Axis(fig[1, i]; title = "Book $book", xlabel = "tf-idf",
+              yticks = (collect(1:nrow(top12)), top12.bigram))
+    barplot!(ax, collect(1:nrow(top12)), top12.tf_idf; direction = :x)
+end
+fig
+```
+
+### 使用二元组为情感分析提供上下文
+
+```{julia}
+afinn = DataFrame(Parquet2.Dataset("data/common/afinn.parquet"))
+
+# "not" 后面跟着的词
+not_bigrams = filter(:word1 => ==("not"), bigram_counts)
+not_words = innerjoin(not_bigrams, afinn, on = word2 = :word)
+not_words.contribution = not_words.n .* not_words.value
+sort!(not_words, :contribution, by = abs, rev = true)
+first(not_words, 20)
+```
+
+```{julia}
+#| label: fig-notwordsplot-jl
+#| fig-cap: "'not' 后面的词对情感值的贡献（Julia）"
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+top20 = first(not_words, 20)
+sort!(top20, :contribution)
+
+fig = Figure(size = (800, 600))
+ax = Axis(fig[1, 1]; xlabel = "Sentiment value * number of occurrences",
+          yticks = (collect(1:nrow(top20)), top20.word2))
+colors = [c < 0 ? :red : :green for c in top20.contribution]
+barplot!(ax, collect(1:nrow(top20)), top20.contribution; color = colors)
+fig
+```
+
+否定词上下文的综合分析：
+
+```{julia}
+negation_words = ["not", "no", "never", "without"]
+negated = filter(:word1 => w -> w in negation_words, bigram_counts)
+negated = innerjoin(negated, afinn, on = word2 = :word)
+negated.contribution = negated.n .* negated.value
+```
+
+## 用词对计算相关度
+
+按每10行一段划分文本，计算词对共现与相关度。
+
+```{julia}
+hongloumeng_en.linenumber = 1:nrow(hongloumeng_en)
+hongloumeng_en.section = hongloumeng_en.linenumber .÷ 10
+
+# 展开为每行一词（仅保留非停止词）
+rows_sw = []
+for row in eachrow(hongloumeng_en)
+    tokens = tokenize_en(row.text)
+    for w in tokens
+        w in en_stopwords && continue
+        push!(rows_sw, (section = row.section, word = w))
+    end
+end
+section_words = DataFrame(rows_sw)
+first(section_words, 5)
+```
+
+### 词对共现计数
+
+```{julia}
+# 按 section 计算词对共现
+pairs_list = Tuple{String,String,Int}[]
+for sub in groupby(section_words, :section)
+    words = unique(sub.word)
+    for i in 1:length(words), j in i+1:length(words)
+        push!(pairs_list, (min(words[i], words[j]), max(words[i], words[j]), sub.section[1]))
+    end
+end
+pairs_df = DataFrame(pairs_list, [:word1, :word2, :section])
+word_pair_counts = combine(groupby(pairs_df, [:word1, :word2]), nrow => :n)
+sort!(word_pair_counts, :n, rev = true)
+first(word_pair_counts, 10)
+```
+
+### 词对相关度
+
+```{julia}
+# 过滤高频词
+word_freq = combine(groupby(section_words, :word), nrow => :n)
+common_words = Set(filter(:n => >=(20), word_freq).word)
+section_common = filter(:word => w -> w in common_words, section_words)
+
+# 构建 section×word 矩阵（稀疏表示）
+sections = unique(section_common.section)
+words = sort(unique(section_common.word))
+word_idx = Dict(w => i for (i, w) in enumerate(words))
+
+# 计算 phi 系数
+function phi_coefficient(x, y)
+    n11 = sum(x .& y)
+    n10 = sum(x .& .!y)
+    n01 = sum(.!x .& y)
+    n00 = sum(.!x .& .!y)
+    n1p = n11 + n10
+    n0p = n01 + n00
+    np1 = n11 + n01
+    np0 = n10 + n00
+    denom = sqrt(Float64(n1p * n0p * np1 * np0))
+    denom == 0 && return 0.0
+    return Float64(n11 * n00 - n10 * n01) / denom
+end
+
+# 构建二元矩阵
+binary_matrix = falses(length(sections), length(words))
+for row in eachrow(section_common)
+    si = findfirst(==(row.section), sections)
+    wi = word_idx[row.word]
+    binary_matrix[si, wi] = true
+end
+
+# 计算 top 词对的相关度（计算量大，只取高频词的前 100 个）
+top_words = first(sort(word_freq, :n, rev = true), 100).word
+correlations = Tuple{String,String,Float64}[]
+for (i, w1) in enumerate(top_words)
+    for w2 in top_words[i+1:end]
+        c1 = binary_matrix[:, word_idx[w1]]
+        c2 = binary_matrix[:, word_idx[w2]]
+        r = phi_coefficient(c1, c2)
+        abs(r) > 0.01 && push!(correlations, (w1, w2, r))
+    end
+end
+word_cors = DataFrame(correlations, [:item1, :item2, :correlation])
+sort!(word_cors, :correlation, rev = true)
+first(word_cors, 10)
+```
+
+```{julia}
+#| label: fig-wordcors-jl
+#| fig-cap: "与特定词相关度最高的词（Julia）"
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+target_words = ["yue", "ounces", "married", "red"]
+fig = Figure(size = (800, 800))
+for (i, tw) in enumerate(target_words)
+    sub = filter(:item1 => ==(tw), word_cors)
+    sub = first(sub, 8)
+    sort!(sub, :correlation)
+    ax = Axis(fig[((i-1)÷2)+1, ((i-1)%2)+1]; title = "Correlated with \"$tw\"",
+              yticks = (collect(1:nrow(sub)), sub.item2))
+    barplot!(ax, collect(1:nrow(sub)), sub.correlation; direction = :x)
+end
+fig
+```
+
+## R vs Julia 对比
+
+| 任务 | R | Julia |
+|---|---|---|
+| n-gram 分词 | `unnest_tokens(token="ngrams")` | 手动 `make_bigrams()` |
+| 拆分二元组 | tidyr `separate()` | `split.` + DataFrame |
+| tf-idf | `bind_tf_idf()` | 手动计算 |
+| 否定词分析 | `inner_join(AFINN)` | `innerjoin(df, dict, on=:word)` |
+| 共现计数 | widyr `pairwise_count()` | 手动 `combinations` |
+| 相关度 | widyr `pairwise_cor()` | 手动 phi 系数计算 |
+| 网络图 | igraph + ggraph | LightGraphs + GraphMakie |
+
+Julia 缺少类似 widyr 的高级词对分析包，需要手动实现共现计数和相关度计算。网络可视化方面 LightGraphs + GraphMakie 可以替代 igraph + ggraph，但语法差异较大。phi 系数的计算在 Julia 中需要手动构建二元矩阵。

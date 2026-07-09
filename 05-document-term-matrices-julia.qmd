@@ -1,0 +1,227 @@
+---
+engine: jupyter
+title: "Julia 实现：非 tidy 格式与 tidy 格式互相转换"
+---
+
+# Julia 实现：非 tidy 格式与 tidy 格式互相转换 {#sec-dtm-julia}
+
+本章用 Julia 重现第 \@ref(sec-dtm) 章的内容：文档-术语矩阵（DTM）与 tidy 数据的互相转换、tf-idf 分析、词频随时间变化。Julia 端用 **DataFrames.jl** 做数据操作，**TextAnalysis.jl** 构建 DTM，**CairoMakie.jl** 绘图。
+
+## 将 DTM 转为 tidy 格式
+
+从 parquet 读取明清小说数据，分词后构建 DTM，再转为 tidy 格式。
+
+```{julia}
+include("data/jieba_fmm.jl")
+using DataFrames, Parquet2, TextAnalysis, StatsBase
+
+dict = load_dict("data/jieba_dict.txt")
+stopwords_zh = load_stopwords("data/stop_word_zh.utf8")
+
+books = DataFrame(Parquet2.Dataset("data/common/books.parquet"))
+println("书名: ", sort(unique(books.title)))
+```
+
+```{julia}
+# 分词
+function segment_clean(text, dict, stopwords)
+    ismissing(text) && return String[]
+    return [w for w in fmm_segment(text, dict) if !isempty(strip(w)) && !(strip(w) in stopwords)]
+end
+
+books.words = segment_clean.(books.text, Ref(dict), Ref(stopwords_zh))
+```
+
+### 用 TextAnalysis.jl 构建 DTM
+
+```{julia}
+# 构建 Corpus
+docs = [StringDocument(join(ws, " ")) for ws in books.words]
+crps = Corpus(docs)
+
+# 设置文档名
+for (i, doc) in enumerate(crps)
+    name!(doc, books.title[i])
+end
+
+update_lexicon!(crps)
+dtm_mat = DocumentTermMatrix(crps)
+println("DTM: ", size(dtm_mat.dtm), ", 词汇表: ", length(crps.lexicon))
+```
+
+### DTM 转 tidy 格式
+
+```{julia}
+# 从稀疏 DTM 转为 tidy DataFrame
+terms_list = sort(collect(keys(crps.lexicon)))
+doc_names_list = [document_name(d) for d in crps]
+
+rows = []
+for (i, doc_name) in enumerate(doc_names_list)
+    for (j, term) in enumerate(terms_list)
+        val = dtm_mat.dtm[i, j]
+        if val > 0
+            push!(rows, (document = doc_name, term = term, count = val))
+        end
+    end
+end
+dtm_tidy = DataFrame(rows)
+first(dtm_tidy, 10)
+```
+
+### tidy 格式转 DTM
+
+```{julia}
+# 从 tidy DataFrame 构建 DTM（等价于 R 的 cast_dtm）
+# 先 pivot 成宽表
+unique_docs = unique(dtm_tidy.document)
+unique_terms = unique(dtm_tidy.term)
+
+# 构建映射
+doc_idx = Dict(d => i for (i, d) in enumerate(unique_docs))
+term_idx = Dict(t => i for (i, t) in enumerate(unique_terms))
+
+# 构建稀疏矩阵
+sparse_data = sparse(
+    [doc_idx[r.document] for r in eachrow(dtm_tidy)],
+    [term_idx[r.term] for r in eachrow(dtm_tidy)],
+    dtm_tidy.count,
+    length(unique_docs),
+    length(unique_terms)
+)
+println("DTM from tidy: ", size(sparse_data))
+```
+
+## 情感分析（从 DTM 开始）
+
+```{julia}
+nrc = DataFrame(Parquet2.Dataset("data/common/nrc.parquet"))
+bing_dict = filter(:sentiment => s -> s in ["positive", "negative"], nrc)
+
+# 从 tidy DTM 加入情感词典
+dtm_sentiment = innerjoin(dtm_tidy, bing_dict, on = term = :word)
+first(dtm_sentiment, 10)
+```
+
+```{julia}
+#| label: fig-apsentimentplot-jl
+#| fig-cap: "各书中正面和负面情感的词（Julia）"
+using CairoMakie
+CairoMakie.activate!()
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+# 按书、情感、词统计
+sent_counts = combine(groupby(dtm_sentiment, [:document, :sentiment, :term]), :count => sum => :total)
+titles_list = sort(unique(sent_counts.document))
+
+fig = Figure(size = (1200, 1200))
+for (i, title) in enumerate(titles_list[1:min(6, length(titles_list))])
+    sub = filter(:document => ==(title), sent_counts)
+    top15 = combine(groupby(sub, :sentiment)) do g
+        first(sort(g, :total, rev = true), 15)
+    end
+    sort!(top15, :total)
+    ax = Axis(fig[((i-1)÷2)+1, ((i-1)%2)+1]; title = title[1:min(8, length(title))],
+              yticks = (collect(1:nrow(top15)), top15.term))
+    colors = [s == "negative" ? :red : :green for s in top15.sentiment]
+    barplot!(ax, collect(1:nrow(top15)), top15.total; color = colors)
+end
+fig
+```
+
+## 科技文本的 tf-idf
+
+```{julia}
+stem = DataFrame(Parquet2.Dataset("data/common/stem.parquet"))
+stem.words = segment_clean.(stem.text, Ref(dict), Ref(stopwords_zh))
+
+rows_stem = []
+for row in eachrow(stem)
+    for w in row.words
+        isempty(strip(w)) && continue
+        push!(rows_stem, (author = row.author, word = w))
+    end
+end
+tidy_stem = DataFrame(rows_stem)
+
+# 移除纯数字/英文词
+num_re = r"^[A-Za-z0-9零一二三四五六七八九十百千萬]+$"
+tidy_stem = filter(:word => w -> !occursin(num_re, w), tidy_stem)
+
+# tf-idf
+stem_counts = combine(groupby(tidy_stem, [:author, :word]), nrow => :n)
+n_docs_s = length(unique(stem_counts.author))
+docs_per_word_s = combine(groupby(stem_counts, :word), :author => length => :n_docs)
+stem_counts = leftjoin(stem_counts, docs_per_word_s, on = :word)
+author_total = combine(groupby(stem_counts, :author), :n => sum => :total)
+stem_counts = leftjoin(stem_counts, author_total, on = :author)
+stem_counts.tf = stem_counts.n ./ stem_counts.total
+stem_counts.idf = log.(n_docs_s ./ stem_counts.n_docs)
+stem_counts.tf_idf = stem_counts.tf .* stem_counts.idf
+sort!(stem_counts, :tf_idf, rev = true)
+first(stem_counts, 10)
+```
+
+## 年度词频变化
+
+```{julia}
+hongloumeng_en = DataFrame(Parquet2.Dataset("data/common/hongloumeng_en.parquet"))
+hongloumeng_en.linenumber = 1:nrow(hongloumeng_en)
+hongloumeng_en.section = hongloumeng_en.linenumber .÷ 100
+
+# 分词
+function tokenize_en(text)
+    ismissing(text) && return String[]
+    cleaned = replace(text, r"[^a-zA-Z\s]" => "")
+    return [lowercase(w) for w in split(cleaned) if length(w) > 0]
+end
+
+rows_sw = []
+for row in eachrow(hongloumeng_en)
+    tokens = tokenize_en(row.text)
+    for w in tokens
+        push!(rows_sw, (section = row.section, word = w))
+    end
+end
+section_words = DataFrame(rows_sw)
+
+section_counts = combine(groupby(section_words, [:section, :word]), nrow => :count)
+section_totals = combine(groupby(section_words, :section), nrow => :total)
+section_counts = leftjoin(section_counts, section_totals, on = :section)
+section_counts.proportion = section_counts.count ./ section_counts.total
+```
+
+```{julia}
+#| label: fig-yearterm-jl
+#| fig-cap: "词频随时间的变化（Julia）"
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+target_words = ["love", "death", "life", "house", "family", "child"]
+fig = Figure(size = (1200, 600))
+for (i, word) in enumerate(target_words)
+    wsub = filter(:word => ==(word), section_counts)
+    sort!(wsub, :section)
+    ax = Axis(fig[((i-1)÷3)+1, ((i-1)%3)+1]; title = word, xlabel = "Section", ylabel = "% frequency")
+    scatter!(ax, wsub.section, wsub.proportion; markersize = 3, alpha = 0.5)
+    # 简单移动平均
+    if nrow(wsub) > 3
+        ma = [mean(wsub.proportion[max(1,k-1):min(nrow(wsub),k+1)]) for k in 1:nrow(wsub)]
+        lines!(ax, wsub.section, ma; color = :steelblue)
+    end
+end
+fig
+```
+
+## R vs Julia 对比
+
+| 任务 | R | Julia |
+|---|---|---|
+| DTM 构建 | `cast_dtm()` / tm `DocumentTermMatrix` | `DocumentTermMatrix(Corpus)` |
+| tidy 转 DTM | `cast_dtm(document, term, count)` | 手动构建稀疏矩阵 |
+| DTM 转 tidy | `tidy(AssociatedPress)` | 手动遍历稀疏矩阵 |
+| tf-idf | `bind_tf_idf()` | 手动计算 |
+| 稀疏矩阵 | `cast_sparse()` | `SparseArrays.sparse()` |
+| 词频趋势 | `geom_smooth()` | 手动移动平均 + lines! |
+| 绘图 | ggplot2 `facet_wrap()` | CairoMakie subplots |
+
+Julia 的 TextAnalysis.jl 提供了 DTM 和 Corpus 管理功能，但 tidy 格式的转换需要手动实现。R 的 tidytext 在 DTM ↔ tidy 转换方面更为流畅。Julia 在稀疏矩阵操作上性能优异，适合大规模文本处理。

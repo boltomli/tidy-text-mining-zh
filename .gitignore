@@ -34,3 +34,5 @@ Rplots.pdf
 /*.ilg
 /*.ind
 /*.pdf
+# quarto render 单文件 HTML 残留
+/*.html

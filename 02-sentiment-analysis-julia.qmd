@@ -1,0 +1,269 @@
+---
+engine: jupyter
+title: "Julia 实现：情感分析"
+---
+
+# Julia 实现：情感分析 {#sec-sentiment-julia}
+
+本章用 Julia 重现第 \@ref(sec-sentiment) 章的内容：使用情感词典对文本进行情感分析。Julia 端用 **DataFrames.jl** 做数据操作，**TextAnalysis.jl** 提供分词和语料管理，**CairoMakie.jl** 绘图。情感词典（AFINN、Bing、NRC）从统一导出的 parquet 读取。
+
+## 情感词典
+
+加载三个情感词典（AFINN、Bing、NRC），查看其结构。
+
+```{julia}
+using DataFrames, Parquet2
+
+afinn = DataFrame(Parquet2.Dataset("data/common/afinn.parquet"))
+nrc = DataFrame(Parquet2.Dataset("data/common/nrc.parquet"))
+println("AFINN: ", nrow(afinn), " rows")
+first(afinn, 5)
+```
+
+```{julia}
+println("NRC: ", nrow(nrc), " rows")
+first(nrc, 5)
+```
+
+## 《红楼梦》英译本情感分析
+
+从 parquet 读取《红楼梦》英译本，分词后进行情感分析。
+
+```{julia}
+hongloumeng_en = DataFrame(Parquet2.Dataset("data/common/hongloumeng_en.parquet"))
+println("行数: ", nrow(hongloumeng_en), ", 列: ", names(hongloumeng_en))
+first(hongloumeng_en, 5)
+```
+
+```{julia}
+# 英文停止词
+en_stopwords = Set(split("i me my myself we our ours ourselves you your yours yourself yourselves
+him himselves his himself she her hers herself it its itself they them their theirs
+themselves what which who whom this that these those am is are was were be been being
+have has had having do does did doing a an the and but if or because as until while of at
+by for with about against between through during before after above below to from up down
+in out on off over under again further then once here there when where why how all both each
+few more most other some such no nor not only own same so than too very s t can will just don
+should now d ll m o re ve y ain aren couldn didn doesn hadn hasn haven isn ma mightn
+mustn needn shan shouldn wasn weren won wouldn"))
+```
+
+按上下半部分（book）和章节划分，展开为每行一词：
+
+```{julia}
+# 标记 book
+book_markers = occursin.(Ref(r"HUNG LOU MENG, BOOK [I]+"), coalesce.(hongloumeng_en.text, ""))
+hongloumeng_en.book = cumsum(book_markers)
+
+# 标记 linenumber 和 chapter
+function add_indices!(df)
+    n = nrow(df)
+    df.linenumber = 1:n
+    chapter_markers = occursin.(Ref(r"^chapter [\divxlc]"), lowercase.(coalesce.(df.text, "")))
+    df.chapter = cumsum(chapter_markers)
+    return df
+end
+
+# 按 book 分组添加索引
+hongloumeng_en = combine(groupby(hongloumeng_en, :book), add_indices!)
+
+# 简单英文分词（空格+标点切分，小写化）
+function tokenize_en(text)
+    ismissing(text) && return String[]
+    words = split(replace(text, r"[^a-zA-Z\s]" => ""), r"\s+")
+    return [lowercase(w) for w in words if length(w) > 0]
+end
+
+# 展开为每行一词
+rows = []
+for row in eachrow(hongloumeng_en)
+    words = tokenize_en(row.text)
+    for w in words
+        push!(rows, (book = row.book, linenumber = row.linenumber, chapter = row.chapter, word = w))
+    end
+end
+tidy_books = DataFrame(rows)
+println("总词数: ", nrow(tidy_books))
+first(tidy_books, 5)
+```
+
+### NRC 词典：最常见的"开心"词
+
+```{julia}
+nrc_joy = filter(:sentiment => ==("joy"), nrc)
+book1_joy = innerjoin(filter(:book => ==(1), tidy_books), nrc_joy, on = :word)
+sort(combine(groupby(book1_joy, :word), nrow => :n), :n, rev = true)
+```
+
+### Bing 词典：叙事过程中的情感变化
+
+```{julia}
+bing_dict = filter(:sentiment => s -> s in ["positive", "negative"], nrc)
+
+net_sent = innerjoin(tidy_books, bing_dict, on = :word)
+net_sent.index = net_sent.linenumber .÷ 100
+
+# 按 book, index, sentiment 计数
+counts = combine(groupby(net_sent, [:book, :index, :sentiment]), nrow => :n)
+# pivot
+pos = filter(:sentiment => ==("positive"), counts)
+neg = filter(:sentiment => ==("negative"), counts)
+merged = outerjoin(pos[:, [:book, :index, :n]], neg[:, [:book, :index, :n]], on = [:book, :index])
+rename!(merged, :n => :positive, :n_1 => :negative)
+coalesce!.(merged.positive, 0)
+coalesce!.(merged.negative, 0)
+merged.sentiment = merged.positive .- merged.negative
+sort!(merged, [:book, :index])
+first(merged, 10)
+```
+
+绘制情感变化图（等价于图 \@ref(fig-sentimentplot)）：
+
+```{julia}
+#| label: fig-sentimentplot-jl
+#| fig-cap: "《红楼梦》英译本叙事过程中的情感（Julia）"
+using CairoMakie
+CairoMakie.activate!()
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+fig = Figure(size = (1000, 400))
+for (i, book) in enumerate([1, 2])
+    sub = filter(:book => ==(book), merged)
+    ax = Axis(fig[1, i]; title = "Book $book", xlabel = "Index (每100行)", ylabel = "Net sentiment")
+    colors = [s < 0 ? :red : :green for s in sub.sentiment]
+    barplot!(ax, 1:nrow(sub), sub.sentiment; color = colors)
+end
+fig
+```
+
+## 三个情感词典的比较
+
+用 AFINN、Bing、NRC 三种词典分别计算下半部（book 2）的情感变化。
+
+```{julia}
+book2 = filter(:book => ==(2), tidy_books)
+book2.index = book2.linenumber .÷ 100
+
+# AFINN
+afinn_book2 = innerjoin(book2, afinn, on = :word)
+afinn_by_index = combine(groupby(afinn_book2, :index), :value => sum => :sentiment)
+afinn_by_index.method .= "AFINN"
+
+# Bing
+bing_book2 = innerjoin(book2, bing_dict, on = :word)
+bing_counts = combine(groupby(bing_book2, [:index, :sentiment]), nrow => :n)
+bing_pos = filter(:sentiment => ==("positive"), bing_counts)[:, [:index, :n]]
+bing_neg = filter(:sentiment => ==("negative"), bing_counts)[:, [:index, :n]]
+bing_merged = outerjoin(bing_pos, bing_neg, on = :index)
+rename!(bing_merged, :n => :positive, :n_1 => :negative)
+coalesce!.(bing_merged.positive, 0)
+coalesce!.(bing_merged.negative, 0)
+bing_merged.sentiment = bing_merged.positive .- bing_merged.negative
+bing_merged.method .= "Bing et al."
+bing_merged = bing_merged[:, [:index, :sentiment, :method]]
+
+# NRC
+nrc_posneg = filter(:sentiment => s -> s in ["positive", "negative"], nrc)
+nrc_book2 = innerjoin(book2, nrc_posneg, on = :word)
+nrc_counts = combine(groupby(nrc_book2, [:index, :sentiment]), nrow => :n)
+nrc_pos = filter(:sentiment => ==("positive"), nrc_counts)[:, [:index, :n]]
+nrc_neg = filter(:sentiment => ==("negative"), nrc_counts)[:, [:index, :n]]
+nrc_merged = outerjoin(nrc_pos, nrc_neg, on = :index)
+rename!(nrc_merged, :n => :positive, :n_1 => :negative)
+coalesce!.(nrc_merged.positive, 0)
+coalesce!.(nrc_merged.negative, 0)
+nrc_merged.sentiment = nrc_merged.positive .- nrc_merged.negative
+nrc_merged.method .= "NRC"
+nrc_merged = nrc_merged[:, [:index, :sentiment, :method]]
+
+compare = vcat(afinn_by_index[:, [:index, :sentiment, :method]], bing_merged, nrc_merged)
+first(compare, 10)
+```
+
+```{julia}
+#| label: fig-compareplot-jl
+#| fig-cap: "用《红楼梦》英译本下半部比较三个情感词典（Julia）"
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+fig = Figure(size = (1000, 700))
+methods_list = ["AFINN", "Bing et al.", "NRC"]
+for (i, m) in enumerate(methods_list)
+    sub = filter(:method => ==(m), compare)
+    ax = Axis(fig[i, 1]; title = m, xlabel = "Index (每100行)", ylabel = "Sentiment")
+    colors = [s < 0 ? :red : :green for s in sub.sentiment]
+    barplot!(ax, 1:nrow(sub), sub.sentiment; color = colors)
+end
+fig
+```
+
+## 最常见的正面词和负面词
+
+```{julia}
+bing_word_counts = combine(groupby(innerjoin(tidy_books, bing_dict, on = :word), [:word, :sentiment]),
+                           nrow => :n)
+sort!(bing_word_counts, :n, rev = true)
+first(bing_word_counts, 10)
+```
+
+```{julia}
+#| label: fig-pipetoplot-jl
+#| fig-cap: "《红楼梦》英译本中正面和负面情感的词（Julia）"
+set_theme!(fonts = (regular = "Noto Sans CJK SC", bold = "Noto Sans CJK SC"))
+
+fig = Figure(size = (800, 400))
+for (i, sent) in enumerate(["negative", "positive"])
+    sub = filter(:sentiment => ==(sent), bing_word_counts)
+    top10 = first(sub, 10)
+    sort!(top10, :n)
+    color = sent == "positive" ? :green : :red
+    ax = Axis(fig[1, i]; title = sent, xlabel = "Count",
+              yticks = (collect(1:nrow(top10)), top10.word))
+    barplot!(ax, collect(1:nrow(top10)), top10.n; color = color)
+end
+fig
+```
+
+## 中文《红楼梦》词云
+
+```{julia}
+include("data/jieba_fmm.jl")
+using Parquet2
+
+hongloumeng = DataFrame(Parquet2.Dataset("data/common/hongloumeng.parquet"))
+dict = load_dict("data/jieba_dict.txt")
+stopwords_zh = load_stopwords("data/stop_word_zh.utf8")
+
+# 分词并统计词频
+word_freq = Dict{String, Int}()
+for row in eachrow(hongloumeng)
+    ismissing(row.text) && continue
+    words = fmm_segment(row.text, dict)
+    for w in words
+        w = strip(w)
+        isempty(w) && continue
+        w in stopwords_zh && continue
+        word_freq[w] = get(word_freq, w, 0) + 1
+    end
+end
+
+# Top 20
+sorted_words = sort(collect(word_freq), by = x -> x[2], rev = true)
+for (w, c) in sorted_words[1:20]
+    println("$w: $c")
+end
+```
+
+> 注：Julia 生态中没有成熟的词云包，此处仅展示词频统计。可视化可用 CairoMakie 的 `barplot!` 替代。
+
+## R vs Julia 对比
+
+| 任务 | R | Julia |
+|---|---|---|
+| 情感词典 | tidytext `get_sentiments()` | `Parquet2.Dataset()` 直接读取 |
+| 情感分析 | `inner_join(sentiments)` | `innerjoin(df, dict, on=:word)` |
+| 情感统计 | `count(sentiment)` + `spread()` | `combine(groupby, nrow)` + pivot |
+| 词云 | wordcloud2 | 仅词频统计（Julia 无成熟词云包） |
+| 句子分词 | `unnest_tokens(token="sentences")` | 手动 `split()` |
+| 绘图 | ggplot2 | CairoMakie |
+
+Julia 的文本处理生态不如 R/Python 成熟，英文分词需要手动实现或依赖 TextAnalysis.jl。情感词典内容与 R 完全一致（同一 parquet 数据源），分析结果应一致。

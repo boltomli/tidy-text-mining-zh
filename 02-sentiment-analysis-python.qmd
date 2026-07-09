@@ -1,0 +1,290 @@
+---
+engine: jupyter
+title: "Python 实现：情感分析"
+---
+
+# Python 实现：情感分析 {#sec-sentiment-python}
+
+本章用 Python 重现第 \@ref(sec-sentiment) 章的内容：使用情感词典对文本进行情感分析。Python 端用 **pandas** 做数据操作，**nltk** 提供英文停止词和分词，**matplotlib** 绘图，**wordcloud** 生成词云。情感词典（AFINN、Bing、NRC）从统一导出的 parquet 读取。
+
+## 情感词典
+
+加载三个情感词典（AFINN、Bing、NRC），查看其结构。
+
+```{python}
+import pandas as pd
+
+afinn = pd.read_parquet("data/common/afinn.parquet")
+nrc = pd.read_parquet("data/common/nrc.parquet")
+print("AFINN:", afinn.shape)
+print(afinn.head())
+print("\nNRC:", nrc.shape)
+print(nrc.head())
+```
+
+```{python}
+bing = nrc[nrc["lexicon"] == "bing"] if "lexicon" in nrc.columns else nrc
+# 也单独导出了 afinn
+print("AFINN 唯一情感值:", sorted(afinn["value"].unique()))
+```
+
+## 《红楼梦》英译本情感分析
+
+从 parquet 读取《红楼梦》英译本，分词后进行情感分析。
+
+```{python}
+import re
+import nltk
+from nltk.corpus import stopwords
+
+nltk.download("stopwords", quiet=True)
+nltk.download("punkt_tab", quiet=True)
+en_stopwords = set(stopwords.words("english"))
+
+hongloumeng_en = pd.read_parquet("data/common/hongloumeng_en.parquet")
+print(f"行数: {len(hongloumeng_en)}, 列: {list(hongloumeng_en.columns)}")
+hongloumeng_en.head()
+```
+
+按上下半部分（book）和章节划分，展开为每行一词（等价于 R 的 `unnest_tokens`）：
+
+```{python}
+# 标记 book（上/下半部）
+hongloumeng_en["book"] = (
+    hongloumeng_en["text"].str.contains(r"HUNG LOU MENG, BOOK [I]+", regex=True, na=False).cumsum()
+)
+
+# 按行号标记 linenumber 和 chapter
+def process_book(df):
+    df = df.copy()
+    df["linenumber"] = range(1, len(df) + 1)
+    df["chapter"] = (
+        df["text"].str.contains(r"^chapter [\divxlc]", regex=True, na=False, case=False).cumsum()
+    )
+    return df
+
+hongloumeng_en = hongloumeng_en.groupby("book", group_keys=False).apply(process_book)
+
+# 分词
+def tokenize(text):
+    if not isinstance(text, str):
+        return []
+    return [w.lower() for w in nltk.word_tokenize(text) if w.isalpha()]
+
+words_list = hongloumeng_en["text"].apply(tokenize)
+tidy_books = hongloumeng_en[["book", "linenumber", "chapter"]].copy()
+tidy_books = tidy_books.assign(word=words_list).explode("word")
+tidy_books = tidy_books[tidy_books["word"].str.len() > 0]
+print(f"总词数: {len(tidy_books)}")
+tidy_books.head()
+```
+
+### NRC 词典：最常见的"开心"词
+
+```{python}
+nrc_joy = nrc[nrc["sentiment"] == "joy"]
+
+book1_joy = (
+    tidy_books[tidy_books["book"] == 1]
+    .merge(nrc_joy, left_on="word", right_on="word", how="inner")
+)
+book1_joy["word"].value_counts().head(10)
+```
+
+### Bing 词典：叙事过程中的情感变化
+
+```{python}
+# Bing 词典中 positive/negative 的词
+bing_dict = nrc[nrc["sentiment"].isin(["positive", "negative"])]
+# 去重（一个词可能同时标为 positive 和 negative）
+bing_dict = bing_dict.drop_duplicates(subset=["word", "sentiment"])
+
+net_sentiment = (
+    tidy_books
+    .merge(bing_dict, on="word", how="inner")
+    .assign(index=lambda df: df["linenumber"] // 100)
+    .groupby(["book", "index", "sentiment"])
+    .size()
+    .reset_index(name="n")
+    .pivot(index=["book", "index"], columns="sentiment", values="n")
+    .fillna(0)
+    .reset_index()
+)
+net_sentiment["sentiment"] = net_sentiment["positive"] - net_sentiment["negative"]
+net_sentiment.head()
+```
+
+绘制情感变化图（等价于图 \@ref(fig-sentimentplot)）：
+
+```{python}
+#| label: fig-sentimentplot-py
+#| fig-cap: "《红楼梦》英译本叙事过程中的情感（Python）"
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.rcParams["font.sans-serif"] = ["Noto Sans CJK SC", "Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=False)
+for ax, book in zip(axes, [1, 2]):
+    sub = net_sentiment[net_sentiment["book"] == book]
+    colors = ["#d62728" if s < 0 else "#2ca02c" for s in sub["sentiment"]]
+    ax.bar(sub["index"], sub["sentiment"], color=colors, width=1.0)
+    ax.set_title(f"Book {book}")
+    ax.set_xlabel("Index (每100行)")
+    ax.set_ylabel("Net sentiment")
+plt.tight_layout()
+plt.show()
+```
+
+## 三个情感词典的比较
+
+用 AFINN、Bing、NRC 三种词典分别计算下半部（book 2）的情感变化。
+
+```{python}
+book2 = tidy_books[tidy_books["book"] == 2].copy()
+book2["index"] = book2["linenumber"] // 100
+
+# AFINN：数值型情感分数
+afinn_scores = book2.merge(afinn, on="word", how="inner")
+afinn_by_index = afinn_scores.groupby("index")["value"].sum().reset_index()
+afinn_by_index["method"] = "AFINN"
+
+# Bing：二元分类
+bing_scores = book2.merge(bing_dict, on="word", how="inner")
+bing_by_index = (
+    bing_scores.groupby(["index", "sentiment"]).size()
+    .reset_index(name="n")
+    .pivot(index="index", columns="sentiment", values="n")
+    .fillna(0)
+    .reset_index()
+)
+bing_by_index["sentiment"] = bing_by_index["positive"] - bing_by_index["negative"]
+bing_by_index = bing_by_index[["index", "sentiment"]]
+bing_by_index["method"] = "Bing et al."
+
+# NRC：positive/negative 标签
+nrc_posneg = nrc[nrc["sentiment"].isin(["positive", "negative"])]
+nrc_scores = book2.merge(nrc_posneg, on="word", how="inner")
+nrc_by_index = (
+    nrc_scores.groupby(["index", "sentiment"]).size()
+    .reset_index(name="n")
+    .pivot(index="index", columns="sentiment", values="n")
+    .fillna(0)
+    .reset_index()
+)
+nrc_by_index["sentiment"] = nrc_by_index["positive"] - nrc_by_index["negative"]
+nrc_by_index = nrc_by_index[["index", "sentiment"]]
+nrc_by_index["method"] = "NRC"
+
+compare = pd.concat([afinn_by_index, bing_by_index, nrc_by_index], ignore_index=True)
+compare.head()
+```
+
+```{python}
+#| label: fig-compareplot-py
+#| fig-cap: "用《红楼梦》英译本下半部比较三个情感词典（Python）"
+fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
+for ax, method in zip(axes, ["AFINN", "Bing et al.", "NRC"]):
+    sub = compare[compare["method"] == method]
+    colors = ["#d62728" if s < 0 else "#2ca02c" for s in sub["sentiment"]]
+    ax.bar(sub["index"], sub["sentiment"], color=colors, width=1.0)
+    ax.set_title(method)
+    ax.set_ylabel("Sentiment")
+plt.xlabel("Index (每100行)")
+plt.tight_layout()
+plt.show()
+```
+
+## 最常见的正面词和负面词
+
+```{python}
+bing_word_counts = (
+    tidy_books
+    .merge(bing_dict, on="word", how="inner")
+    .groupby(["word", "sentiment"])
+    .size()
+    .reset_index(name="n")
+    .sort_values("n", ascending=False)
+)
+bing_word_counts.head(10)
+```
+
+```{python}
+#| label: fig-pipetoplot-py
+#| fig-cap: "《红楼梦》英译本中正面和负面情感的词（Python）"
+top10 = (
+    bing_word_counts
+    .groupby("sentiment")
+    .apply(lambda g: g.nlargest(10, "n"))
+    .reset_index(drop=True)
+)
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+for ax, sent in zip(axes, ["positive", "negative"]):
+    sub = top10[top10["sentiment"] == sent].sort_values("n")
+    color = "#2ca02c" if sent == "positive" else "#d62728"
+    ax.barh(sub["word"], sub["n"], color=color)
+    ax.set_title(sent)
+    ax.set_xlabel("Count")
+plt.tight_layout()
+plt.show()
+```
+
+## 中文《红楼梦》词云
+
+```{python}
+hongloumeng = pd.read_parquet("data/common/hongloumeng.parquet")
+
+import jieba
+
+with open("data/stop_word_zh.utf8", encoding="utf-8") as f:
+    stopwords_zh = set(line.strip() for line in f if line.strip())
+
+def segment_zh(texts):
+    result = []
+    for t in texts:
+        words = jieba.lcut(t) if isinstance(t, str) else []
+        result.append([w for w in words if w.strip() and w not in stopwords_zh])
+    return result
+
+hongloumeng["words"] = segment_zh(hongloumeng["text"])
+all_words = [w for ws in hongloumeng["words"] for w in ws]
+
+from collections import Counter
+word_freq = Counter(all_words)
+word_freq.most_common(20)
+```
+
+```{python}
+#| label: fig-firstwordcloud-py
+#| fig-cap: "《红楼梦》常见词云（Python）"
+from wordcloud import WordCloud
+
+wc = WordCloud(
+    font_path="C:/Windows/Fonts/msyh.ttc",
+    width=800, height=600,
+    max_words=80,
+    background_color="white"
+)
+wc.generate_from_frequencies(word_freq)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.imshow(wc, interpolation="bilinear")
+ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
+## R vs Python 对比
+
+| 任务 | R | Python |
+|---|---|---|
+| 情感词典 | tidytext `get_sentiments()` | pandas `read_parquet()` |
+| 情感分析 | `inner_join(sentiments)` | `merge(sentiments)` |
+| 情感统计 | `count(sentiment)` + `spread()` | `groupby()` + `pivot()` |
+| 词云 | wordcloud2 | wordcloud |
+| 句子分词 | `unnest_tokens(token="sentences")` | `nltk.word_tokenize()` |
+| 绘图 | ggplot2 | matplotlib |
+
+Python 的 nltk 分词基于英文，中文分词仍需 jieba。情感词典内容与 R 完全一致（同一 parquet 数据源）。

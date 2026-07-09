@@ -1,0 +1,222 @@
+---
+engine: jupyter
+title: "Python 实现：非 tidy 格式与 tidy 格式互相转换"
+---
+
+# Python 实现：非 tidy 格式与 tidy 格式互相转换 {#sec-dtm-python}
+
+本章用 Python 重现第 \@ref(sec-dtm) 章的内容：文档-术语矩阵（DTM）与 tidy 数据的互相转换、tf-idf 分析、词频随时间变化。Python 端用 **pandas** 做数据操作，**scikit-learn** 构建 DTM 和 tf-idf，**matplotlib** 绘图。
+
+## 将 DTM 转为 tidy 格式
+
+Python 中没有 R tm 包的 `DocumentTermMatrix` 类，但可以用 scipy 的稀疏矩阵和 sklearn 的 `CountVectorizer` 实现等价功能。从 tidy 格式构建 DTM，再转回 tidy 格式。
+
+```{python}
+import pandas as pd
+import numpy as np
+from scipy.sparse import csr_matrix
+
+# 从 parquet 读取明清小说数据
+books = pd.read_parquet("data/common/books.parquet")
+
+import jieba
+with open("data/stop_word_zh.utf8", encoding="utf-8") as f:
+    stopwords = set(line.strip() for line in f if line.strip())
+
+def segment_clean(text):
+    if not isinstance(text, str):
+        return []
+    return [w for w in jieba.lcut(text) if w.strip() and w not in stopwords]
+
+books["words"] = books["text"].apply(segment_clean)
+tidy_books = books[["title", "words"]].explode("words").rename(columns={"words": "word"})
+tidy_books = tidy_books[tidy_books["word"].str.len() > 0]
+
+# 统计每个（书, 词）的出现次数
+book_word_counts = tidy_books.groupby(["title", "word"]).size().reset_index(name="count")
+book_word_counts.head(10)
+```
+
+从 tidy 格式构建 DTM（等价于 R 的 `cast_dtm()`）：
+
+```{python}
+# pivot 成宽表 = DTM
+dtm = book_word_counts.pivot(index="title", columns="word", values="count").fillna(0)
+print(f"DTM: {dtm.shape}")
+dtm.iloc[:5, :5]
+```
+
+转回 tidy 格式（等价于 R 的 `tidy(dtm)`）：
+
+```{python}
+# melt 宽表回长表
+dtm_tidy = dtm.reset_index().melt(id_vars="title", var_name="term", value_name="count")
+dtm_tidy = dtm_tidy[dtm_tidy["count"] > 0]
+dtm_tidy.head(10)
+```
+
+## 情感分析（从 DTM 开始）
+
+```{python}
+# 从 tidy DTM 开始，加入情感词典进行分析
+nrc = pd.read_parquet("data/common/nrc.parquet")
+bing_dict = nrc[nrc["sentiment"].isin(["positive", "negative"])]
+
+dtm_sentiment = dtm_tidy.merge(bing_dict, left_on="term", right_on="word", how="inner")
+dtm_sentiment.head(10)
+```
+
+```{python}
+#| label: fig-apsentimentplot-py
+#| fig-cap: "各书中正面和负面情感的词（Python）"
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.rcParams["font.sans-serif"] = ["Noto Sans CJK SC", "Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+sent_counts = dtm_sentiment.groupby(["title", "sentiment", "term"])["count"].sum().reset_index()
+# 取每种情感 top 15
+top_words = (
+    sent_counts.groupby(["title", "sentiment"])
+    .apply(lambda g: g.nlargest(15, "count"))
+    .reset_index(drop=True)
+)
+
+titles = sorted(top_words["title"].unique())
+fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+for ax, title in zip(axes.flat, titles):
+    sub = top_words[top_words["title"] == title].sort_values("count")
+    colors = ["#d62728" if s == "negative" else "#2ca02c" for s in sub["sentiment"]]
+    ax.barh(sub["term"], sub["count"], color=colors)
+    ax.set_title(title[:8], fontsize=9)
+    ax.set_xlabel("Count")
+plt.tight_layout()
+plt.show()
+```
+
+## 科技文本的 tf-idf
+
+使用科技文本数据集（stem），计算 tf-idf 并找出每部作品最具代表性的词。
+
+```{python}
+stem = pd.read_parquet("data/common/stem.parquet")
+stem["words"] = stem["text"].apply(lambda t: jieba.lcut(t) if isinstance(t, str) else [])
+tidy_stem = stem[["author", "words"]].explode("words").rename(columns={"words": "word"})
+tidy_stem = tidy_stem[tidy_stem["word"].str.len() > 0]
+
+# 移除纯数字/英文词
+num_re = re.compile(r"^[A-Za-z0-9零一二三四五六七八九十百千萬]+$")
+tidy_stem = tidy_stem[~tidy_stem["word"].str.match(num_re)]
+
+# tf-idf
+stem_counts = tidy_stem.groupby(["author", "word"]).size().reset_index(name="n")
+n_docs = stem_counts["author"].nunique()
+docs_per_word = stem_counts.groupby("word")["author"].nunique()
+stem_counts["tf"] = stem_counts["n"] / stem_counts.groupby("author")["n"].transform("sum")
+stem_counts["idf"] = np.log(n_docs / docs_per_word.reindex(stem_counts["word"]).values)
+stem_counts["tf_idf"] = stem_counts["tf"] * stem_counts["idf"]
+stem_counts = stem_counts.sort_values("tf_idf", ascending=False)
+
+# top 10
+stem_counts.head(10)
+```
+
+## 年度词频变化
+
+对《红楼梦》英译本，计算词频随时间（行号索引）的变化。
+
+```{python}
+import re
+
+hongloumeng_en = pd.read_parquet("data/common/hongloumeng_en.parquet")
+hongloumeng_en["linenumber"] = range(1, len(hongloumeng_en) + 1)
+
+# 按 100 行分段
+hongloumeng_en["section"] = hongloumeng_en["linenumber"] // 100
+
+def tokenize_en(text):
+    if not isinstance(text, str):
+        return []
+    return [w.lower() for w in nltk.word_tokenize(text) if w.isalpha()]
+
+import nltk
+hongloumeng_en["tokens"] = hongloumeng_en["text"].apply(tokenize_en)
+section_words = hongloumeng_en[["section"]].copy().assign(word=hongloumeng_en["tokens"]).explode("word")
+section_words = section_words[section_words["word"].str.len() > 0]
+
+# 词频
+section_counts = section_words.groupby(["section", "word"]).size().reset_index(name="count")
+section_totals = section_words.groupby("section").size().reset_index(name="total")
+section_counts = section_counts.merge(section_totals, on="section")
+section_counts["proportion"] = section_counts["count"] / section_counts["total"]
+```
+
+```{python}
+#| label: fig-yearterm-py
+#| fig-cap: "词频随时间的变化（Python）"
+target_words = ["love", "death", "life", "house", "family", "child"]
+sub = section_counts[section_counts["word"].isin(target_words)]
+
+fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+for ax, word in zip(axes.flat, target_words):
+    wsub = sub[sub["word"] == word].sort_values("section")
+    ax.scatter(wsub["section"], wsub["proportion"], s=8, alpha=0.5)
+    # 简单移动平均
+    if len(wsub) > 3:
+        wsub_sorted = wsub.sort_values("section")
+        wsub_sorted["ma"] = wsub_sorted["proportion"].rolling(3, center=True).mean()
+        ax.plot(wsub_sorted["section"], wsub_sorted["ma"], color="steelblue")
+    ax.set_title(word)
+    ax.set_ylabel("% frequency")
+plt.tight_layout()
+plt.show()
+```
+
+## 使用 scikit-learn 构建 DTM
+
+```{python}
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+# 使用空格连接的词作为输入
+corpus = books.groupby("title")["words"].apply(lambda ws: " ".join([" ".join(w) for w in ws])).reset_index()
+
+vectorizer = CountVectorizer(tokenizer=lambda x: x.split(), lowercase=False)
+dtm_sk = vectorizer.fit_transform(corpus["words"])
+print(f"DTM: {dtm_sk.shape}")
+
+# 转为稀疏矩阵（等价于 R 的 cast_sparse()）
+from scipy.sparse import issparse
+print(f"是否稀疏: {issparse(dtm_sk)}")
+print(f"非零元素比例: {dtm_sk.nnz / (dtm_sk.shape[0] * dtm_sk.shape[1]):.4f}")
+```
+
+```{python}
+# tf-idf（等价于 R 的 bind_tf_idf()）
+tfidf_vec = TfidfVectorizer(tokenizer=lambda x: x.split(), lowercase=False)
+tfidf_sk = tfidf_vec.fit_transform(corpus["words"])
+feature_names = tfidf_vec.get_feature_names_out()
+
+# 每本书 top 10 词
+for i, title in enumerate(corpus["title"]):
+    scores = tfidf_sk[i].toarray().flatten()
+    top_idx = scores.argsort()[-10:][::-1]
+    top_words = [(feature_names[j], scores[j]) for j in top_idx]
+    print(f"\n{title}:")
+    for w, s in top_words:
+        print(f"  {w}: {s:.4f}")
+```
+
+## R vs Python 对比
+
+| 任务 | R | Python |
+|---|---|---|
+| DTM 构建 | `cast_dtm()` / tm `DocumentTermMatrix` | `CountVectorizer` / `pivot()` |
+| tidy 转 DTM | `cast_dtm(document, term, count)` | `pivot(index, columns, values)` |
+| DTM 转 tidy | `tidy(AssociatedPress)` | `melt()` 过滤非零 |
+| tf-idf | `bind_tf_idf()` | `TfidfVectorizer` / 手动计算 |
+| 稀疏矩阵 | `cast_sparse()` | `scipy.sparse.csr_matrix` |
+| 词频趋势 | `geom_smooth()` | `rolling().mean()` + scatter |
+| 绘图 | ggplot2 `facet_wrap()` | matplotlib subplots |
+
+Python 的 sklearn 提供了高效的 DTM/tfidf 构建，pandas 的 pivot/melt 可以在 tidy 和宽格式间自由转换。R 的 tidytext 更强调"tidy 数据流"的连贯性，Python 则更灵活但也更分散。

@@ -17,18 +17,30 @@ book:
   repo-actions: [edit, source, issue]
   chapters:
     - index.Rmd
-    - 01-tidy-text.Rmd
-    - 01-tidy-text-python.qmd
-    - 01-tidy-text-julia.qmd
-    - 02-sentiment-analysis.Rmd
-    - 03-tf-idf.Rmd
-    - 03-tf-idf-python.qmd
-    - 03-tf-idf-julia.qmd
-    - 04-word-combinations.Rmd
-    - 05-document-term-matrices.Rmd
-    - 06-topic-models.Rmd
-    - 06-topic-models-python.qmd
-    - 06-topic-models-julia.qmd
+    - part: "R 实现"
+      chapters:
+        - 01-tidy-text.Rmd
+        - 02-sentiment-analysis.Rmd
+        - 03-tf-idf.Rmd
+        - 04-word-combinations.Rmd
+        - 05-document-term-matrices.Rmd
+        - 06-topic-models.Rmd
+    - part: "Python 实现"
+      chapters:
+        - 01-tidy-text-python.qmd
+        - 02-sentiment-analysis-python.qmd
+        - 03-tf-idf-python.qmd
+        - 04-word-combinations-python.qmd
+        - 05-document-term-matrices-python.qmd
+        - 06-topic-models-python.qmd
+    - part: "Julia 实现"
+      chapters:
+        - 01-tidy-text-julia.qmd
+        - 02-sentiment-analysis-julia.qmd
+        - 03-tf-idf-julia.qmd
+        - 04-word-combinations-julia.qmd
+        - 05-document-term-matrices-julia.qmd
+        - 06-topic-models-julia.qmd
     - 10-references.Rmd
 
 bibliography: [book.bib, packages.bib]

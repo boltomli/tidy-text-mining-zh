@@ -1,0 +1,357 @@
+---
+engine: jupyter
+title: "Python 实现：词间关系与 n 元组"
+---
+
+# Python 实现：词间关系与 n 元组 {#sec-ngrams-python}
+
+本章用 Python 重现第 \@ref(sec-ngrams) 章的内容：二元组（bigram）分析、否定词上下文、词对共现与相关度、网络可视化。Python 端用 **pandas** 做数据操作，**nltk** 分词和停止词，**networkx** 绘制网络图，**matplotlib** 绘图。
+
+## 按二元组分词
+
+从 parquet 读取《红楼梦》英译本，生成二元组（bigram）。
+
+```{python}
+import pandas as pd
+import nltk
+from itertools import pairwise
+
+nltk.download("stopwords", quiet=True)
+nltk.download("punkt_tab", quiet=True)
+from nltk.corpus import stopwords
+en_stopwords = set(stopwords.words("english"))
+
+hongloumeng_en = pd.read_parquet("data/common/hongloumeng_en.parquet")
+
+# 标记 book
+hongloumeng_en["book"] = (
+    hongloumeng_en["text"].str.contains(r"HUNG LOU MENG, BOOK [I]+", regex=True, na=False).cumsum()
+)
+
+# 分词
+def tokenize(text):
+    if not isinstance(text, str):
+        return []
+    return [w.lower() for w in nltk.word_tokenize(text) if w.isalpha()]
+
+# 生成二元组
+def make_bigrams(tokens):
+    return [" ".join(pair) for pair in pairwise(tokens)]
+
+hongloumeng_en["tokens"] = hongloumeng_en["text"].apply(tokenize)
+bigrams_list = hongloumeng_en["tokens"].apply(make_bigrams)
+
+bigrams = hongloumeng_en[["book"]].copy()
+bigrams["bigram"] = bigrams_list
+bigrams = bigrams.explode("bigram")
+bigrams = bigrams[bigrams["bigram"].str.contains(" ", na=False)]
+print(f"二元组总数: {len(bigrams)}")
+bigrams.head()
+```
+
+### 计算和过滤二元组
+
+```{python}
+# 拆分为 word1, word2
+bigrams_sep = bigrams["bigram"].str.split(" ", n=1, expand=True)
+bigrams_sep.columns = ["word1", "word2"]
+bigrams_df = pd.concat([bigrams[["book"]].reset_index(drop=True), bigrams_sep], axis=1)
+
+# 移除停止词
+bigrams_filtered = bigrams_df[
+    ~bigrams_df["word1"].isin(en_stopwords) & ~bigrams_df["word2"].isin(en_stopwords)
+]
+
+bigram_counts = (
+    bigrams_filtered.groupby(["word1", "word2"])
+    .size()
+    .reset_index(name="n")
+    .sort_values("n", ascending=False)
+)
+bigram_counts.head(10)
+```
+
+### 三元组
+
+```{python}
+def make_trigrams(tokens):
+    return [" ".join(tri) for tri in nltk.ngrams(tokens, 3)]
+
+trigrams_list = hongloumeng_en["tokens"].apply(make_trigrams)
+trigrams = hongloumeng_en[["book"]].copy()
+trigrams["trigram"] = trigrams_list
+trigrams = trigrams.explode("trigram")
+trigrams = trigrams[trigrams["trigram"].str.count(" ") == 2]
+
+tri_sep = trigrams["trigram"].str.split(" ", expand=True)
+tri_sep.columns = ["word1", "word2", "word3"]
+tri_df = pd.concat([trigrams[["book"]].reset_index(drop=True), tri_sep], axis=1)
+tri_filtered = tri_df[
+    ~tri_df["word1"].isin(en_stopwords) &
+    ~tri_df["word2"].isin(en_stopwords) &
+    ~tri_df["word3"].isin(en_stopwords)
+]
+tri_counts = tri_filtered.groupby(["word1", "word2", "word3"]).size().reset_index(name="n")
+tri_counts = tri_counts.sort_values("n", ascending=False)
+tri_counts.head(10)
+```
+
+### 分析二元组
+
+```{python}
+# 提及 "mansion" 最多的词
+mansion_bigrams = bigrams_filtered[bigrams_filtered["word2"] == "mansion"]
+mansion_bigrams.groupby(["book", "word1"]).size().reset_index(name="n").sort_values("n", ascending=False).head(10)
+```
+
+### 二元组的 tf-idf
+
+```{python}
+import numpy as np
+
+bigrams_united = bigrams_filtered.copy()
+bigrams_united["bigram"] = bigrams_united["word1"] + " " + bigrams_united["word2"]
+
+# tf-idf
+bg_counts = bigrams_united.groupby(["book", "bigram"]).size().reset_index(name="n")
+n_docs = bg_counts["book"].nunique()
+docs_per_bigram = bg_counts.groupby("bigram")["book"].nunique()
+bg_counts["tf"] = bg_counts["n"] / bg_counts.groupby("book")["n"].transform("sum")
+bg_counts["idf"] = np.log(n_docs / docs_per_bigram.reindex(bg_counts["bigram"]).values)
+bg_counts["tf_idf"] = bg_counts["tf"] * bg_counts["idf"]
+bg_counts = bg_counts.sort_values("tf_idf", ascending=False)
+bg_counts.head(10)
+```
+
+```{python}
+#| label: fig-bigramtfidf-py
+#| fig-cap: "《红楼梦》上下半部中 tf-idf 最高的二元组（Python）"
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.rcParams["font.sans-serif"] = ["Noto Sans CJK SC", "Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+top12 = bg_counts.groupby("book").head(12)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 7))
+for ax, book in zip(axes, sorted(top12["book"].unique())):
+    sub = top12[top12["book"] == book].sort_values("tf_idf")
+    ax.barh(sub["bigram"], sub["tf_idf"])
+    ax.set_title(f"Book {book}")
+    ax.set_xlabel("tf-idf")
+plt.tight_layout()
+plt.show()
+```
+
+### 使用二元组为情感分析提供上下文
+
+```{python}
+# "not" 后面跟着的词
+afinn = pd.read_parquet("data/common/afinn.parquet")
+
+not_words = (
+    bigrams_df[bigrams_df["word1"] == "not"]
+    .merge(afinn, left_on="word2", right_on="word", how="inner")
+)
+not_words["contribution"] = not_words["n"] * not_words["value"]
+# 这里 n 需要从 bigram_counts 获取
+not_words_full = (
+    bigram_counts[bigram_counts["word1"] == "not"]
+    .merge(afinn, left_on="word2", right_on="word", how="inner")
+)
+not_words_full["contribution"] = not_words_full["n"] * not_words_full["value"]
+not_words_full = not_words_full.sort_values("contribution", key=abs, ascending=False)
+not_words_full.head(20)
+```
+
+```{python}
+#| label: fig-notwordsplot-py
+#| fig-cap: "'not' 后面的词对情感值的贡献（Python）"
+top20 = not_words_full.head(20).sort_values("contribution")
+fig, ax = plt.subplots(figsize=(8, 6))
+colors = ["#d62728" if c < 0 else "#2ca02c" for c in top20["contribution"]]
+ax.barh(top20["word2"], top20["contribution"], color=colors)
+ax.set_xlabel("Sentiment value * number of occurrences")
+ax.set_ylabel('Words preceded by "not"')
+plt.tight_layout()
+plt.show()
+```
+
+否定词上下文的综合分析：
+
+```{python}
+negation_words = ["not", "no", "never", "without"]
+negated = (
+    bigram_counts[bigram_counts["word1"].isin(negation_words)]
+    .merge(afinn, left_on="word2", right_on="word", how="inner")
+)
+negated["contribution"] = negated["n"] * negated["value"]
+negated = negated.sort_values("contribution", key=abs, ascending=False)
+
+# 每个否定词取 top 12
+top_negated = (
+    negated.groupby("word1")
+    .apply(lambda g: g.nlargest(12, "contribution", keep="first"))
+    .reset_index(drop=True)
+)
+```
+
+```{python}
+#| label: fig-negatedwords-py
+#| fig-cap: "否定词后面的常见正面或负面词（Python）"
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+for ax, neg in zip(axes.flat, negation_words):
+    sub = top_negated[top_negated["word1"] == neg].sort_values("contribution")
+    colors = ["#d62728" if c < 0 else "#2ca02c" for c in sub["contribution"]]
+    ax.barh(sub["word2"], sub["contribution"], color=colors)
+    ax.set_title(f'"{neg}" + ...')
+    ax.set_xlabel("Sentiment * count")
+plt.tight_layout()
+plt.show()
+```
+
+### 用 networkx 绘制二元组网络
+
+```{python}
+import networkx as nx
+
+# 过滤高频二元组
+common_bigrams = bigram_counts[bigram_counts["n"] > 25].dropna()
+G = nx.DiGraph()
+for _, row in common_bigrams.iterrows():
+    G.add_edge(row["word1"], row["word2"], weight=row["n"])
+
+print(f"节点数: {G.number_of_nodes()}, 边数: {G.number_of_edges()}")
+```
+
+```{python}
+#| label: fig-bigramgraph-py
+#| fig-cap: "《红楼梦》中常见的二元组网络（Python）"
+fig, ax = plt.subplots(figsize=(12, 12))
+pos = nx.spring_layout(G, k=1.5, seed=2017)
+nx.draw_networkx_nodes(G, pos, node_size=200, node_color="lightblue", ax=ax)
+nx.draw_networkx_edges(G, pos, alpha=0.3, arrows=True, ax=ax)
+nx.draw_networkx_labels(G, pos, font_size=8, ax=ax)
+ax.set_title("Bigram Network (n > 25)")
+ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
+## 用 pandas 计算和关联词对
+
+按每10行一段划分文本，计算词对共现。
+
+```{python}
+# 标记 linenumber 和 section
+hongloumeng_en["linenumber"] = range(1, len(hongloumeng_en) + 1)
+hongloumeng_en["section"] = hongloumeng_en["linenumber"] // 10
+
+# 展开为每行一词（仅保留非停止词）
+def tokenize_clean(text):
+    if not isinstance(text, str):
+        return []
+    return [w.lower() for w in nltk.word_tokenize(text) if w.isalpha() and w.lower() not in en_stopwords]
+
+hongloumeng_en["words_clean"] = hongloumeng_en["text"].apply(tokenize_clean)
+section_words = hongloumeng_en[["section"]].copy().assign(word=hongloumeng_en["words_clean"]).explode("word")
+section_words = section_words[section_words["word"].str.len() > 0]
+section_words.head()
+```
+
+### 词对共现计数
+
+```{python}
+from itertools import combinations
+
+# 按 section 计算词对共现
+pairs_list = []
+for sec, group in section_words.groupby("section"):
+    words = group["word"].unique()
+    for w1, w2 in combinations(sorted(words), 2):
+        pairs_list.append({"word1": w1, "word2": w2})
+
+word_pairs = pd.DataFrame(pairs_list)
+word_pair_counts = word_pairs.groupby(["word1", "word2"]).size().reset_index(name="n")
+word_pair_counts = word_pair_counts.sort_values("n", ascending=False)
+word_pair_counts.head(10)
+```
+
+### 词对相关度（phi 系数）
+
+```{python}
+# 计算 phi 系数（等价于 Pearson 相关系数在二元数据上）
+# 先过滤高频词
+word_freq = section_words["word"].value_counts()
+common_words = set(word_freq[word_freq >= 20].index)
+section_common = section_words[section_words["word"].isin(common_words)]
+
+# 构建 section×word 的二元矩阵
+cross = pd.crosstab(section_common["section"], section_common["word"])
+
+# 计算 phi 系数
+from scipy.stats import pearsonr
+
+correlations = []
+words_list = sorted(cross.columns)
+for i, w1 in enumerate(words_list):
+    for w2 in words_list[i+1:]:
+        r, _ = pearsonr(cross[w1], cross[w2])
+        correlations.append({"item1": w1, "item2": w2, "correlation": r})
+
+word_cors = pd.DataFrame(correlations)
+word_cors = word_cors.sort_values("correlation", ascending=False)
+word_cors.head(10)
+```
+
+```{python}
+#| label: fig-wordcors-py
+#| fig-cap: "与特定词相关度最高的词（Python）"
+target_words = ["yue", "ounces", "married", "red"]
+top_cors = word_cors[word_cors["item1"].isin(target_words)]
+
+fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+for ax, tw in zip(axes.flat, target_words):
+    sub = top_cors[top_cors["item1"] == tw].head(8).sort_values("correlation")
+    ax.barh(sub["item2"], sub["correlation"])
+    ax.set_title(f'Correlated with "{tw}"')
+    ax.set_xlabel("Correlation")
+plt.tight_layout()
+plt.show()
+```
+
+### 词对相关度网络
+
+```{python}
+#| label: fig-wordcorsnetwork-py
+#| fig-cap: "词对相关度网络（Python）"
+high_cors = word_cors[word_cors["correlation"] > 0.20]
+G_corr = nx.Graph()
+for _, row in high_cors.iterrows():
+    G_corr.add_edge(row["item1"], row["item2"], weight=row["correlation"])
+
+fig, ax = plt.subplots(figsize=(10, 10))
+pos = nx.spring_layout(G_corr, k=1.5, seed=2016)
+nx.draw_networkx_nodes(G_corr, pos, node_size=300, node_color="lightblue", ax=ax)
+nx.draw_networkx_edges(G_corr, pos, alpha=0.3, ax=ax)
+nx.draw_networkx_labels(G_corr, pos, font_size=8, ax=ax)
+ax.set_title("Word Correlation Network (phi > 0.20)")
+ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
+## R vs Python 对比
+
+| 任务 | R | Python |
+|---|---|---|
+| n-gram 分词 | `unnest_tokens(token="ngrams")` | `pairwise()` / `nltk.ngrams()` |
+| 拆分二元组 | tidyr `separate()` | `str.split()` + `expand=True` |
+| tf-idf | `bind_tf_idf()` | 手动计算 |
+| 否定词分析 | `inner_join(AFINN)` | `merge(afinn)` |
+| 共现计数 | widyr `pairwise_count()` | `itertools.combinations` |
+| 相关度 | widyr `pairwise_cor()` | `scipy.stats.pearsonr` |
+| 网络图 | igraph + ggraph | networkx + matplotlib |
+
+Python 的 nltk 提供了灵活的分词和 n-gram 工具，但 widyr 的 pairwise 函数在 R 中更为简洁。网络可视化方面 networkx 功能强大但语法较冗长。
